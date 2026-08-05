@@ -1,0 +1,144 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  background: #07140f;
+  color: #f6fff9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.screen {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  place-items: center;
+  padding: 5vh 5vw;
+  background: radial-gradient(circle at 50% 45%, rgb(25 107 68 / 28%), transparent 45%), #07140f;
+}
+
+.eyebrow {
+  color: #82eaae;
+  font-size: clamp(14px, 4vw, 80px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.count {
+  font-size: clamp(80px, 52vw, 920px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  /* letter-spacing: -0.06em; */
+  line-height: 0.8;
+  text-shadow: 0 0 0.22em rgb(65 239 137 / 24%);
+}
+
+.caption {
+  color: #d9f9e6;
+  font-size: clamp(14px, 6vw, 110px);
+  font-weight: 500;
+}
+
+.control {
+  width: min(760px, calc(100% - 32px));
+  padding: 32px;
+  border: 1px solid #28533f;
+  border-radius: 24px;
+  background: #0e2018;
+  box-shadow: 0 20px 70px rgb(0 0 0 / 35%);
+}
+
+.control h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.control p {
+  margin: 0 0 28px;
+  color: #acd4bd;
+}
+
+.control-count {
+  margin: 18px 0 30px;
+  font-size: clamp(100px, 24vw, 220px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+button {
+  min-height: 110px;
+  border: 0;
+  border-radius: 18px;
+  background: #2bc16d;
+  color: #04140b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 56px;
+  font-weight: 800;
+}
+
+button:first-child {
+  background: #f1b849;
+}
+
+button:active {
+  transform: translateY(2px);
+}
+
+.set-value {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+input {
+  min-width: 0;
+  border: 1px solid #3a7256;
+  border-radius: 14px;
+  padding: 0 18px;
+  background: #07140f;
+  color: inherit;
+  font: inherit;
+  font-size: 28px;
+}
+
+.set-value button {
+  min-height: 64px;
+  padding: 0 24px;
+  font-size: 20px;
+}
+
+.status {
+  min-height: 24px;
+  margin-top: 18px;
+  color: #82eaae;
+}
+
+.status.error {
+  color: #ff9c91;
+}

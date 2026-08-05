@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Настройка парковочного табло</title>
+    <link rel="stylesheet" href="parking.css" />
+  </head>
+  <body class="control-body">
+    <main class="control">
+      <header class="control-header">
+        <div>
+          <span class="control-kicker">Йошка ЕШ · 320×480</span>
+          <h1>Парковочное табло</h1>
+        </div>
+        <div class="connection" data-status aria-live="polite">Подключение…</div>
+      </header>
+
+      <form class="settings" data-settings-form>
+        <section class="primary-counter" aria-label="Свободные места">
+          <div class="counter-control">
+            <button
+              class="step-button decrement"
+              type="button"
+              data-decrement
+              aria-label="Уменьшить число мест"
+            >
+              −
+            </button>
+            <input
+              class="spaces-input"
+              name="spaces"
+              type="number"
+              min="0"
+              max="9999"
+              step="1"
+              aria-label="Количество свободных мест"
+            />
+            <button
+              class="step-button increment"
+              type="button"
+              data-increment
+              aria-label="Увеличить число мест"
+            >
+              +
+            </button>
+          </div>
+        </section>
+
+        <details class="appearance-settings">
+          <summary>Настройки оформления</summary>
+          <div class="appearance-layout">
+            <section class="preview-section" aria-label="Предпросмотр табло">
+              <div class="preview-shell">
+                <div class="display preview-display" data-display>
+                  <div class="display-sign">
+                    <img src="parking.svg" alt="Парковка" data-parking-sign />
+                  </div>
+                  <div class="display-counter">
+                    <div class="display-count" data-count>32</div>
+                    <div class="display-caption" data-caption>свободных мест</div>
+                  </div>
+                  <div class="display-brand" data-brand>
+                    <img class="brand-item brand-ornament" src="ornament.svg" alt="" />
+                    <img class="brand-item brand-logo" src="logo.svg" alt="Йошка ЕШ" />
+                  </div>
+                </div>
+              </div>
+              <p class="preview-note">Шахматная подложка обозначает прозрачность.</p>
+            </section>
+
+            <div class="appearance-fields">
+              <fieldset>
+                <legend>Счётчик</legend>
+                <label class="range-field">
+                  <span>Размер числа <output data-output-for="counterSize"></output></span>
+                  <input name="counterSize" type="range" min="72" max="240" step="1" />
+                </label>
+                <label class="range-field">
+                  <span>Защита текста <output data-output-for="textShadow"></output></span>
+                  <input name="textShadow" type="range" min="0" max="100" step="1" />
+                </label>
+                <p class="field-note">Мягкая тень для читаемости на светлом фоне.</p>
+                <label class="switch-field">
+                  <span
+                    ><strong>Плотные цифры</strong
+                    ><small>Уменьшенный интервал между символами</small></span
+                  >
+                  <input name="compactDigits" type="checkbox" />
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Композиция</legend>
+                <label class="range-field">
+                  <span>Размер знака <output data-output-for="parkingSize"></output></span>
+                  <input name="parkingSize" type="range" min="64" max="240" step="1" />
+                </label>
+                <label class="switch-field">
+                  <span><strong>Подпись</strong><small>Показывать «свободных мест»</small></span>
+                  <input name="captionVisible" type="checkbox" />
+                </label>
+                <label class="range-field" data-caption-size-field>
+                  <span>Размер подписи <output data-output-for="captionSize"></output></span>
+                  <input name="captionSize" type="range" min="12" max="48" step="1" />
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Нижний элемент</legend>
+                <div class="segmented" role="group" aria-label="Нижний элемент">
+                  <label
+                    ><input type="radio" name="bottomMode" value="ornament" /><span
+                      >Орнамент</span
+                    ></label
+                  >
+                  <label
+                    ><input type="radio" name="bottomMode" value="logo" /><span
+                      >Логотип</span
+                    ></label
+                  >
+                  <label
+                    ><input type="radio" name="bottomMode" value="alternate" /><span
+                      >По очереди</span
+                    ></label
+                  >
+                </div>
+                <label class="range-field" data-interval-field>
+                  <span>Интервал <output data-output-for="switchInterval"></output></span>
+                  <input name="switchInterval" type="range" min="2" max="120" step="1" />
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Фон</legend>
+                <label class="range-field">
+                  <span>Непрозрачность <output data-output-for="backgroundOpacity"></output></span>
+                  <input name="backgroundOpacity" type="range" min="0" max="100" step="1" />
+                </label>
+                <p class="field-note">0% — полностью прозрачный, 100% — непрозрачный чёрный.</p>
+              </fieldset>
+            </div>
+          </div>
+        </details>
+      </form>
+    </main>
+    <script src="parking.js"></script>
+  </body>
+</html>

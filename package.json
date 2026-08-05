@@ -1,0 +1,17 @@
+{
+  "name": "gmib-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Official plugins and catalog for gmib",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.5.1",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:catalog": "node scripts/build-catalog.mjs",
+    "validate": "node scripts/validate.mjs"
+  },
+  "devDependencies": {
+    "semver": "^7.8.5"
+  }
+}

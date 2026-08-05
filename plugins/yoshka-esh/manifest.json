@@ -1,0 +1,21 @@
+{
+  "id": "yoshka-esh",
+  "name": "Парковка «Йошка ЕШ»",
+  "version": "1.4.0",
+  "description": "Портретное парковочное табло 320×480 с фирменным оформлением и страницей управления.",
+  "gmibApi": "^1.0.0",
+  "main": "dist/main.cjs",
+  "public": "public",
+  "permissions": ["http.routes", "storage", "realtime", "output.pages"],
+  "pages": [
+    {
+      "id": "screen",
+      "title": "Йошка ЕШ/Свободные места",
+      "path": "screen.html"
+    }
+  ],
+  "control": {
+    "title": "Настройка табло",
+    "path": "control.html"
+  }
+}

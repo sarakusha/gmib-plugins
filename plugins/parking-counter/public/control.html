@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Управление парковкой</title>
+    <link rel="stylesheet" href="parking.css" />
+  </head>
+  <body>
+    <main class="control">
+      <h1>Свободные места</h1>
+      <p>Изменения сразу появляются на видеоэкране.</p>
+      <div class="control-count" data-count>—</div>
+      <div class="buttons">
+        <button type="button" data-decrement aria-label="Уменьшить">−</button>
+        <button type="button" data-increment aria-label="Увеличить">+</button>
+      </div>
+      <form class="set-value" data-set-form>
+        <input name="spaces" type="number" min="0" step="1" placeholder="Точное значение" required />
+        <button type="submit">Установить</button>
+      </form>
+      <div class="status" data-status aria-live="polite"></div>
+    </main>
+    <script src="parking.js"></script>
+  </body>
+</html>

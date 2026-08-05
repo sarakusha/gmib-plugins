@@ -1,0 +1,147 @@
+<!doctype html>
+<!-- cspell:ignore Truchet truchet -->
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shader Screensavers — управление</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="control-body">
+    <main class="workspace">
+      <header class="topbar">
+        <div class="identity">
+          <span class="mark" aria-hidden="true"></span>
+          <div>
+            <strong>Shader Screensavers</strong>
+            <span>WebGL · адаптивный вывод</span>
+          </div>
+        </div>
+        <div class="save-state" data-status aria-live="polite">
+          <span></span>
+          <b>Подключение</b>
+        </div>
+      </header>
+
+      <section class="preview-region" aria-label="Предпросмотр заставки">
+        <div class="preview-toolbar">
+          <div>
+            <span class="section-index">01</span>
+            <h1>Предпросмотр</h1>
+          </div>
+          <label class="aspect-control">
+            <span>Формат</span>
+            <select data-aspect>
+              <option value="free">По окну</option>
+              <option value="16 / 9">16:9</option>
+              <option value="9 / 16">9:16</option>
+              <option value="1 / 1">1:1</option>
+              <option value="4 / 1">4:1</option>
+            </select>
+          </label>
+        </div>
+        <div class="preview-shell" data-preview-shell>
+          <canvas class="shader-canvas" data-shader-canvas></canvas>
+          <div class="canvas-note" data-screen-message>Инициализация WebGL…</div>
+          <div class="preview-meta" aria-hidden="true">
+            <span data-scene-name>Truchet Flow</span>
+            <span>Live</span>
+          </div>
+        </div>
+      </section>
+
+      <form class="inspector" data-settings-form>
+        <section class="scene-section">
+          <div class="section-heading">
+            <span class="section-index">02</span>
+            <div>
+              <h2>Сцена</h2>
+              <p>Выберите характер движения.</p>
+            </div>
+          </div>
+          <div class="scene-list">
+            <label class="scene-option" data-scene-option="truchet">
+              <input type="radio" name="scene" value="truchet" />
+              <span class="scene-number">A</span>
+              <span><b>Truchet Flow</b><small>Плетёные световые маршруты</small></span>
+              <i aria-hidden="true"></i>
+            </label>
+            <label class="scene-option" data-scene-option="aurora">
+              <input type="radio" name="scene" value="aurora" />
+              <span class="scene-number">B</span>
+              <span><b>Aurora Veil</b><small>Мягкие слои полярного света</small></span>
+              <i aria-hidden="true"></i>
+            </label>
+            <label class="scene-option" data-scene-option="plasma">
+              <input type="radio" name="scene" value="plasma" />
+              <span class="scene-number">C</span>
+              <span><b>Liquid Plasma</b><small>Текучие цветовые поля</small></span>
+              <i aria-hidden="true"></i>
+            </label>
+            <label class="scene-option" data-scene-option="topography">
+              <input type="radio" name="scene" value="topography" />
+              <span class="scene-number">D</span>
+              <span><b>Contour Drift</b><small>Живые топографические линии</small></span>
+              <i aria-hidden="true"></i>
+            </label>
+          </div>
+        </section>
+
+        <section class="parameter-section">
+          <div class="section-heading">
+            <span class="section-index">03</span>
+            <div>
+              <h2>Параметры</h2>
+              <p>Изменения сразу видны на табло.</p>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <label class="range-field">
+              <span><b>Скорость</b><output data-output-for="speed"></output></span>
+              <input name="speed" type="range" min="0" max="100" step="1" />
+            </label>
+            <label class="range-field">
+              <span><b>Масштаб</b><output data-output-for="scale"></output></span>
+              <input name="scale" type="range" min="0" max="100" step="1" />
+            </label>
+            <label class="range-field">
+              <span><b>Яркость</b><output data-output-for="brightness"></output></span>
+              <input name="brightness" type="range" min="5" max="100" step="1" />
+            </label>
+            <label class="range-field">
+              <span><b>Слой эффекта</b><output data-output-for="patternOpacity"></output></span>
+              <input name="patternOpacity" type="range" min="0" max="100" step="1" />
+            </label>
+            <label class="range-field">
+              <span><b>Фон</b><output data-output-for="backgroundOpacity"></output></span>
+              <input name="backgroundOpacity" type="range" min="0" max="100" step="1" />
+            </label>
+            <label class="switch-field">
+              <span><b>Анимация</b><small>Остановить на текущем кадре</small></span>
+              <input name="animate" type="checkbox" />
+              <i aria-hidden="true"></i>
+            </label>
+          </div>
+
+          <div class="color-row">
+            <label class="color-field">
+              <span>Свет A</span>
+              <input name="colorA" type="color" />
+            </label>
+            <label class="color-field">
+              <span>Свет B</span>
+              <input name="colorB" type="color" />
+            </label>
+            <label class="color-field">
+              <span>Подложка</span>
+              <input name="background" type="color" />
+            </label>
+          </div>
+        </section>
+      </form>
+    </main>
+    <script src="shader-engine.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

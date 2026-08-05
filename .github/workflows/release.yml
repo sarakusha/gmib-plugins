@@ -1,0 +1,69 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - '*-v*'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: plugin-publishing
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.target.outputs.id }}
+      version: ${{ steps.target.outputs.version }}
+      name: ${{ steps.target.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: target
+        run: node scripts/release-target.mjs "$GITHUB_REF_NAME"
+      - run: pnpm validate
+      - run: pnpm build -- --plugin "${{ steps.target.outputs.id }}"
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLUGIN_ID: ${{ steps.target.outputs.id }}
+          PLUGIN_NAME: ${{ steps.target.outputs.name }}
+          PLUGIN_VERSION: ${{ steps.target.outputs.version }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          "dist/$PLUGIN_ID.gmib-plugin"
+          --verify-tag
+          --title "$PLUGIN_NAME $PLUGIN_VERSION"
+          --generate-notes
+
+  catalog:
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:catalog
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,26 @@
+{
+  "id": "parking-counter",
+  "name": "Счётчик парковки",
+  "version": "1.0.0",
+  "description": "Показывает количество свободных мест и предоставляет отдельную страницу управления.",
+  "gmibApi": "^1.0.0",
+  "main": "dist/main.cjs",
+  "public": "public",
+  "permissions": [
+    "http.routes",
+    "storage",
+    "realtime",
+    "output.pages"
+  ],
+  "pages": [
+    {
+      "id": "screen",
+      "title": "Парковка/Свободные места",
+      "path": "screen.html"
+    }
+  ],
+  "control": {
+    "title": "Управление",
+    "path": "control.html"
+  }
+}

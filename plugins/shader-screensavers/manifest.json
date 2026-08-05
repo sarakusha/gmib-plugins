@@ -1,0 +1,21 @@
+{
+  "id": "shader-screensavers",
+  "name": "Shader Screensavers",
+  "version": "1.0.0",
+  "description": "Адаптивные WebGL-заставки и анимированные подложки для видеоэкранов.",
+  "gmibApi": "^1.0.0",
+  "main": "dist/main.cjs",
+  "public": "public",
+  "permissions": ["http.routes", "storage", "realtime", "output.pages"],
+  "pages": [
+    {
+      "id": "canvas",
+      "title": "Заставки/Shader Screensavers",
+      "path": "screen.html"
+    }
+  ],
+  "control": {
+    "title": "Настроить заставку",
+    "path": "control.html"
+  }
+}
