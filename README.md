@@ -45,8 +45,8 @@ git tag parking-counter-v1.0.1
 git push origin parking-counter-v1.0.1
 ```
 
-GitHub Actions проверит соответствие тега манифесту, соберёт `.gmib-plugin`, создаст GitHub Release
-и заново опубликует каталог через GitHub Pages.
+GitHub Actions проверит соответствие тега манифесту, соберёт `.gmib-plugin` и создаст GitHub Release.
+Каталог публикуется через GitHub Pages при попадании изменений манифеста в `main`.
 
 Подробная спецификация Plugin API и требования к содержимому находятся в [AGENTS.md](AGENTS.md),
 полные переносимые типы — в [gmib-plugin-api.d.ts](gmib-plugin-api.d.ts).
