@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 
+import { zipSync } from 'fflate';
 import semver from 'semver';
 
 export const repositoryRoot = path.resolve(import.meta.dirname, '..');
@@ -163,31 +162,19 @@ export const buildPlugin = async pluginId => {
     else relativeFiles.push(root);
   }
   const files = [...new Set(relativeFiles)].filter(relative => !isExcluded(relative)).sort();
-  const temporary = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${pluginId}-`));
   await fs.promises.mkdir(outputRoot, { recursive: true });
   const archivePath = path.join(outputRoot, `${pluginId}.gmib-plugin`);
-  try {
-    for (const relative of files) {
-      const source = path.join(pluginDirectory, relative);
-      const target = path.join(temporary, relative);
-      await fs.promises.mkdir(path.dirname(target), { recursive: true });
-      await fs.promises.copyFile(source, target);
-      await fs.promises.chmod(target, 0o644);
-      await fs.promises.utimes(target, fixedArchiveTime, fixedArchiveTime);
-    }
-    await fs.promises.rm(archivePath, { force: true });
-    const result = spawnSync('zip', ['-X', '-q', archivePath, ...files], {
-      cwd: temporary,
-      encoding: 'utf8',
-    });
-    if (result.status !== 0) {
-      throw new Error(result.stderr || result.stdout || `zip завершился с кодом ${result.status}`);
-    }
-  } finally {
-    await fs.promises.rm(temporary, { recursive: true, force: true });
+  const entries = {};
+  for (const relative of files) {
+    entries[relative] = await fs.promises.readFile(path.join(pluginDirectory, relative));
   }
-
-  const archive = await fs.promises.readFile(archivePath);
+  const archive = zipSync(entries, {
+    attrs: 0o644 << 16,
+    level: 9,
+    mtime: fixedArchiveTime,
+    os: 3,
+  });
+  await fs.promises.writeFile(archivePath, archive);
   return {
     archivePath,
     manifest,

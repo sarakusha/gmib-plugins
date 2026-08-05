@@ -8,11 +8,17 @@ importers:
 
   .:
     devDependencies:
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       semver:
         specifier: ^7.8.5
         version: 7.8.5
 
 packages:
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
@@ -20,5 +26,7 @@ packages:
     hasBin: true
 
 snapshots:
+
+  fflate@0.8.3: {}
 
   semver@7.8.5: {}
