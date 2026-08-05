@@ -33,9 +33,13 @@ jobs:
           PLUGIN_ID: ${{ steps.target.outputs.id }}
           PLUGIN_NAME: ${{ steps.target.outputs.name }}
           PLUGIN_VERSION: ${{ steps.target.outputs.version }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          "dist/$PLUGIN_ID.gmib-plugin"
-          --verify-tag
-          --title "$PLUGIN_NAME $PLUGIN_VERSION"
-          --generate-notes
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "dist/$PLUGIN_ID.gmib-plugin" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "dist/$PLUGIN_ID.gmib-plugin" \
+              --verify-tag \
+              --title "$PLUGIN_NAME $PLUGIN_VERSION" \
+              --generate-notes
+          fi
