@@ -11,7 +11,9 @@ export const outputRoot = path.join(repositoryRoot, 'dist');
 
 const ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const allowedPermissions = new Set(['http.routes', 'storage', 'realtime', 'output.pages']);
-const fixedArchiveTime = new Date('2000-01-01T00:00:00.000Z');
+// ZIP stores calendar fields without a timezone. A local Date constructor therefore produces the
+// same metadata in every timezone, unlike parsing an absolute UTC timestamp.
+const fixedArchiveTime = new Date(2000, 0, 1, 0, 0, 0);
 
 const requiredString = (value, field) => {
   if (typeof value !== 'string' || value.trim() === '') {
