@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-17T13:05:05.832Z",
+  "source": "https://github.com/sarakusha/gmib-plugins",
+  "plugins": [
+    {
+      "manifest": {
+        "id": "parking-counter",
+        "name": "Счётчик парковки",
+        "version": "1.0.0",
+        "description": "Показывает количество свободных мест и предоставляет отдельную страницу управления.",
+        "gmibApi": "^1.0.0",
+        "main": "dist/main.cjs",
+        "public": "public",
+        "permissions": [
+          "http.routes",
+          "storage",
+          "realtime",
+          "output.pages"
+        ],
+        "pages": [
+          {
+            "id": "screen",
+            "title": "Парковка/Свободные места",
+            "path": "screen.html"
+          }
+        ],
+        "control": {
+          "title": "Управление",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/parking-counter-v1.0.0/parking-counter.gmib-plugin",
+        "sha256": "39b2eea57468a48566cc922b3c28b43b2491d8f1c4cf26bfaa08c1a1257f1672",
+        "size": 4185
+      }
+    },
+    {
+      "manifest": {
+        "id": "shader-screensavers",
+        "name": "Shader Screensavers",
+        "version": "1.0.0",
+        "description": "Адаптивные WebGL-заставки и анимированные подложки для видеоэкранов.",
+        "gmibApi": "^1.0.0",
+        "main": "dist/main.cjs",
+        "public": "public",
+        "permissions": [
+          "http.routes",
+          "storage",
+          "realtime",
+          "output.pages"
+        ],
+        "pages": [
+          {
+            "id": "canvas",
+            "title": "Заставки/Shader Screensavers",
+            "path": "screen.html"
+          }
+        ],
+        "control": {
+          "title": "Настроить заставку",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/shader-screensavers-v1.0.0/shader-screensavers.gmib-plugin",
+        "sha256": "7a1fc439e35467764c434a5e8ec977240fe559c974aebc4246318457995e1a84",
+        "size": 11657
+      }
+    },
+    {
+      "manifest": {
+        "id": "yoshka-esh",
+        "name": "Парковка «Йошка ЕШ»",
+        "version": "1.4.0",
+        "description": "Портретное парковочное табло 320×480 с фирменным оформлением и страницей управления.",
+        "gmibApi": "^1.0.0",
+        "main": "dist/main.cjs",
+        "public": "public",
+        "permissions": [
+          "http.routes",
+          "storage",
+          "realtime",
+          "output.pages"
+        ],
+        "pages": [
+          {
+            "id": "screen",
+            "title": "Йошка ЕШ/Свободные места",
+            "path": "screen.html"
+          }
+        ],
+        "control": {
+          "title": "Настройка табло",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/yoshka-esh-v1.4.0/yoshka-esh.gmib-plugin",
+        "sha256": "5042db842f068f2126c78cfb6077c254f2521435e53a5ea547051d061ef42c5e",
+        "size": 1129420
+      }
+    }
+  ]
+}

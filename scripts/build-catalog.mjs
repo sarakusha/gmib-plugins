@@ -31,10 +31,11 @@ const catalog = {
   plugins,
 };
 const siteRoot = path.join(repositoryRoot, 'site');
+const catalogText = `${JSON.stringify(catalog, null, 2)}\n`;
 await fs.promises.mkdir(siteRoot, { recursive: true });
-await fs.promises.writeFile(
-  path.join(siteRoot, 'index.json'),
-  `${JSON.stringify(catalog, null, 2)}\n`,
-  'utf8',
-);
+await Promise.all([
+  fs.promises.writeFile(path.join(repositoryRoot, 'catalog.json'), catalogText, 'utf8'),
+  fs.promises.writeFile(path.join(siteRoot, 'index.json'), catalogText, 'utf8'),
+]);
+console.log(`✓ ${path.join(repositoryRoot, 'catalog.json')} (${plugins.length} плагина)`);
 console.log(`✓ ${path.join(siteRoot, 'index.json')} (${plugins.length} плагина)`);

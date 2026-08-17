@@ -8,11 +8,11 @@
 gmib загружает каталог по стабильному адресу:
 
 ```text
-https://sarakusha.github.io/gmib-plugins/index.json
+https://raw.githubusercontent.com/sarakusha/gmib-plugins/main/catalog.json
 ```
 
 Индекс генерируется из `plugins/*/manifest.json`. Готовые архивы хранятся в GitHub Releases этого
-репозитория.
+репозитория. GitHub Pages публикует дополнительную копию каталога.
 
 ## Плагины
 
@@ -29,8 +29,9 @@ pnpm build
 pnpm build:catalog
 ```
 
-Архивы появятся в `dist`, итоговый индекс — в `site/index.json`. Сборка воспроизводима на разных ОС:
-служебные файлы исключаются, а timestamps и файловые атрибуты ZIP фиксируются.
+Архивы появятся в `dist`, итоговый индекс — в `catalog.json` и `site/index.json`. Сборка
+воспроизводима на разных ОС: служебные файлы исключаются, а timestamps и файловые атрибуты ZIP
+фиксируются.
 
 ## Публикация версии
 
