@@ -427,3 +427,20 @@ summary {
     animation: none !important;
   }
 }
+
+.participant-results {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.participant-results button {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+#participant-results-status {
+  margin: 10px 0;
+}
+#new-person {
+  margin-top: 12px;
+}

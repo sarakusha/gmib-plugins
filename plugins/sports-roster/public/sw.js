@@ -1,9 +1,10 @@
-const CACHE = "sports-roster-1.0.0";
+const CACHE = "sports-roster-1.0.1";
 const shell = [
   "control.html",
   "app.css",
   "common.js",
   "control.js",
+  "participant-search.js",
   "manifest.webmanifest",
   "icon.svg",
 ];

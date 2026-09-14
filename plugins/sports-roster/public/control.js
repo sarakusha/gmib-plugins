@@ -1,4 +1,5 @@
 import { $, esc, api, notify, realtime } from "./common.js";
+import { availablePeople, searchPeople } from "./participant-search.js";
 let sports = [],
   teams = [],
   members = [],
@@ -96,19 +97,12 @@ async function editMember(member) {
     field(form, name).value = member?.[name] ?? "";
   field(form, "captain").checked = Boolean(member?.captain);
   field(form, "active").checked = member ? Boolean(member.active) : true;
-  people = await api("participants");
-  $("#existing").innerHTML =
-    '<option value="">Новый участник</option>' +
-    people
-      .filter(
-        (person) => !members.some((item) => item.participantId === person.id),
-      )
-      .map(
-        (person) =>
-          `<option value="${esc(person.id)}">${esc(person.lastName)} ${esc(person.firstName)}</option>`,
-      )
-      .join("");
-  $("#existing-label").hidden = Boolean(member);
+  people = member ? [] : availablePeople(await api("participants"), members);
+  $("#existing-area").hidden = people.length === 0;
+  $("#existing-picker").open = false;
+  $("#existing-summary").textContent = "Выбрать ранее добавленного";
+  $("#new-person").hidden = true;
+  renderPeople();
   $("#member-dialog").showModal();
 }
 $("#sport").onchange = protect(loadTeams);
@@ -127,11 +121,48 @@ $("#members").onclick = protect(async (event) => {
 $("#new-team").onclick = () => editTeam();
 $("#edit-team").onclick = () => editTeam(selected);
 $("#add-member").onclick = protect(() => editMember());
-$("#existing").onchange = () => {
-  const person = people.find((item) => item.id === $("#existing").value);
-  for (const name of ["firstName", "lastName"])
-    field($("#member-form"), name).value = person?.[name] ?? "";
-  field($("#member-form"), "participantId").value = person?.id ?? "";
+function renderPeople() {
+  const { items, total } = searchPeople(people, $("#participant-search").value);
+  $("#participant-results-status").textContent =
+    total === 0
+      ? "Никого не найдено. Измените запрос или введите нового участника ниже."
+      : total > items.length
+        ? `Найдено: ${total}. Показаны первые ${items.length} — уточните запрос.`
+        : `Найдено: ${total}`;
+  $("#participant-results").innerHTML = items
+    .map(
+      (person) =>
+        `<button type="button" data-person="${esc(person.id)}">${esc(person.lastName)} ${esc(person.firstName)}</button>`,
+    )
+    .join("");
+}
+$("#participant-search").oninput = renderPeople;
+$("#participant-search").onkeydown = (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    $("#participant-results button")?.focus();
+  }
+};
+$("#participant-results").onclick = (event) => {
+  const id = event.target.closest("[data-person]")?.dataset.person;
+  const person = people.find((item) => item.id === id);
+  if (!person) return;
+  for (const name of ["firstName", "lastName", "participantId"])
+    field($("#member-form"), name).value =
+      name === "participantId" ? person.id : person[name];
+  $("#existing-summary").textContent =
+    `Выбран: ${person.lastName} ${person.firstName}`;
+  $("#existing-picker").open = false;
+  $("#new-person").hidden = false;
+  field($("#member-form"), "number").focus();
+};
+$("#new-person").onclick = () => {
+  for (const name of ["firstName", "lastName", "participantId"])
+    field($("#member-form"), name).value = "";
+  $("#existing-summary").textContent = "Выбрать ранее добавленного";
+  $("#new-person").hidden = true;
+  $("#existing-picker").open = false;
+  field($("#member-form"), "lastName").focus();
 };
 $("#team-form").onsubmit = protect(async () => {
   const b = Object.fromEntries(new FormData($("#team-form")));

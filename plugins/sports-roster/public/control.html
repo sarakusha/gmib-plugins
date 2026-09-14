@@ -108,11 +108,32 @@
     <dialog id="member-dialog">
       <form id="member-form" class="stack">
         <h2>Участник команды</h2>
-        <input name="participantId" type="hidden" /><label id="existing-label"
-          >Добавить из общего справочника<select id="existing">
-            <option value="">Новый участник</option>
-          </select></label
-        >
+        <input name="participantId" type="hidden" />
+        <div id="existing-area" hidden>
+          <details id="existing-picker">
+            <summary id="existing-summary">Выбрать ранее добавленного</summary>
+            <label
+              >Поиск по фамилии и имени
+              <input
+                id="participant-search"
+                type="search"
+                autocomplete="off"
+                placeholder="Например, Иванов Алексей"
+                aria-describedby="participant-results-status"
+              />
+            </label>
+            <p id="participant-results-status" class="status" role="status"></p>
+            <div
+              id="participant-results"
+              class="participant-results"
+              role="group"
+              aria-label="Найденные участники"
+            ></div>
+          </details>
+          <button id="new-person" type="button" class="ghost" hidden>
+            Добавить нового вместо выбранного
+          </button>
+        </div>
         <div class="grid">
           <label
             >Фамилия<input name="lastName" required maxlength="100" /></label
