@@ -428,19 +428,51 @@ summary {
   }
 }
 
-.participant-results {
+.participant-combobox {
+  position: relative;
   display: grid;
-  gap: 4px;
-  max-height: 220px;
-  overflow-y: auto;
+  gap: 7px;
 }
-.participant-results button {
-  text-align: left;
+#participant-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: max(100%, 320px);
+  max-width: calc(95vw - 60px);
+  z-index: 10;
+  background: #19271f;
+  border: 1px solid #52675a;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px #0008;
+}
+#participant-options {
+  max-height: min(220px, 32vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#participant-options [role="option"] {
+  padding: 12px;
+  min-height: 44px;
+  cursor: pointer;
   overflow-wrap: anywhere;
 }
-#participant-results-status {
-  margin: 10px 0;
+#participant-options [role="option"]:hover,
+#participant-options [aria-selected="true"] {
+  background: #304b3c;
 }
-#new-person {
-  margin-top: 12px;
+#participant-options .create-person {
+  color: var(--accent);
+  border-top: 1px solid #3b4941;
+}
+#participant-results-status {
+  padding: 8px 12px;
+  border-top: 1px solid #3b4941;
+  font-size: 12px;
+}
+#participant-selection {
+  display: block;
+  height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

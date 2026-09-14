@@ -5,7 +5,10 @@ let sports = [],
   members = [],
   selected,
   emblem = "",
-  people = [];
+  people = [],
+  editingMember = false,
+  suggestedPeople = [],
+  activeSuggestion = -1;
 const field = (form, name) => form.elements.namedItem(name);
 const protect = (work) => async (event) => {
   if (event?.type === "submit") event.preventDefault();
@@ -97,12 +100,12 @@ async function editMember(member) {
     field(form, name).value = member?.[name] ?? "";
   field(form, "captain").checked = Boolean(member?.captain);
   field(form, "active").checked = member ? Boolean(member.active) : true;
+  editingMember = Boolean(member);
   people = member ? [] : availablePeople(await api("participants"), members);
-  $("#existing-area").hidden = people.length === 0;
-  $("#existing-picker").open = false;
-  $("#existing-summary").textContent = "Выбрать ранее добавленного";
-  $("#new-person").hidden = true;
-  renderPeople();
+  closeSuggestions();
+  $("#participant-selection").textContent = member
+    ? "Редактирование участника"
+    : "Новый участник";
   $("#member-dialog").showModal();
 }
 $("#sport").onchange = protect(loadTeams);
@@ -121,49 +124,110 @@ $("#members").onclick = protect(async (event) => {
 $("#new-team").onclick = () => editTeam();
 $("#edit-team").onclick = () => editTeam(selected);
 $("#add-member").onclick = protect(() => editMember());
-function renderPeople() {
-  const { items, total } = searchPeople(people, $("#participant-search").value);
-  $("#participant-results-status").textContent =
-    total === 0
-      ? "Никого не найдено. Измените запрос или введите нового участника ниже."
-      : total > items.length
-        ? `Найдено: ${total}. Показаны первые ${items.length} — уточните запрос.`
-        : `Найдено: ${total}`;
-  $("#participant-results").innerHTML = items
-    .map(
-      (person) =>
-        `<button type="button" data-person="${esc(person.id)}">${esc(person.lastName)} ${esc(person.firstName)}</button>`,
-    )
-    .join("");
+const surname = $("#member-last-name");
+function closeSuggestions() {
+  $("#participant-popup").hidden = true;
+  surname.setAttribute("aria-expanded", "false");
+  surname.removeAttribute("aria-activedescendant");
+  activeSuggestion = -1;
 }
-$("#participant-search").oninput = renderPeople;
-$("#participant-search").onkeydown = (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    $("#participant-results button")?.focus();
+function renderPeople() {
+  const form = $("#member-form");
+  const query = `${surname.value} ${field(form, "firstName").value}`.trim();
+  if (editingMember || !surname.value.trim()) return closeSuggestions();
+  const { items, total } = searchPeople(people, query, 20);
+  suggestedPeople = items;
+  activeSuggestion = -1;
+  surname.removeAttribute("aria-activedescendant");
+  $("#participant-options").innerHTML =
+    items
+      .map(
+        (person, index) =>
+          `<div role="option" aria-selected="false" id="person-option-${index}" data-option="${index}">${esc(person.lastName)} ${esc(person.firstName)}</div>`,
+      )
+      .join("") +
+    `<div role="option" aria-selected="false" id="person-option-${items.length}" data-option="${items.length}" class="create-person">Добавить нового: ${esc(query)}</div>`;
+  $("#participant-results-status").textContent =
+    total > items.length
+      ? `Показаны ${items.length} из ${total} — уточните фамилию или имя.`
+      : total
+        ? `Найдено: ${total}`
+        : "Совпадений нет";
+  $("#participant-popup").hidden = false;
+  surname.setAttribute("aria-expanded", "true");
+}
+function choosePerson(index) {
+  const form = $("#member-form");
+  const person = suggestedPeople[index];
+  field(form, "participantId").value = person?.id ?? "";
+  if (person) {
+    for (const name of ["firstName", "lastName"])
+      field(form, name).value = person[name];
   }
+  $("#participant-selection").textContent = person
+    ? `Из справочника: ${person.lastName} ${person.firstName}`
+    : "Новый участник";
+  closeSuggestions();
+  field(form, person ? "number" : "firstName").focus();
+}
+for (const name of ["lastName", "firstName"]) {
+  field($("#member-form"), name).oninput = () => {
+    // Changing an offered name creates a new person; editing a team member keeps its identity.
+    if (!editingMember) {
+      field($("#member-form"), "participantId").value = "";
+      $("#participant-selection").textContent = "Новый участник";
+    }
+    if (document.activeElement === surname) renderPeople();
+  };
+}
+surname.onfocus = renderPeople;
+surname.onkeydown = (event) => {
+  if (event.isComposing) return;
+  if (event.key === "Escape" && !$("#participant-popup").hidden) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeSuggestions();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if ($("#participant-popup").hidden) renderPeople();
+    if ($("#participant-popup").hidden) return;
+    const count = suggestedPeople.length + 1;
+    activeSuggestion =
+      activeSuggestion < 0
+        ? event.key === "ArrowDown"
+          ? 0
+          : count - 1
+        : (activeSuggestion + (event.key === "ArrowDown" ? 1 : -1) + count) %
+          count;
+    document
+      .querySelectorAll("#participant-options [role=option]")
+      .forEach((option, index) =>
+        option.setAttribute(
+          "aria-selected",
+          String(index === activeSuggestion),
+        ),
+      );
+    const option = $(`#person-option-${activeSuggestion}`);
+    surname.setAttribute("aria-activedescendant", option.id);
+    option.scrollIntoView({ block: "nearest" });
+  } else if (event.key === "Enter") {
+    // Enter chooses only an explicitly highlighted option, never silently saves the form.
+    event.preventDefault();
+    if (!$("#participant-popup").hidden && activeSuggestion >= 0)
+      choosePerson(activeSuggestion);
+    else {
+      closeSuggestions();
+      field($("#member-form"), "firstName").focus();
+    }
+  } else if (event.key === "Tab") closeSuggestions();
 };
-$("#participant-results").onclick = (event) => {
-  const id = event.target.closest("[data-person]")?.dataset.person;
-  const person = people.find((item) => item.id === id);
-  if (!person) return;
-  for (const name of ["firstName", "lastName", "participantId"])
-    field($("#member-form"), name).value =
-      name === "participantId" ? person.id : person[name];
-  $("#existing-summary").textContent =
-    `Выбран: ${person.lastName} ${person.firstName}`;
-  $("#existing-picker").open = false;
-  $("#new-person").hidden = false;
-  field($("#member-form"), "number").focus();
+$("#participant-popup").onpointerdown = (event) => event.preventDefault();
+$("#participant-options").onclick = (event) => {
+  const option = event.target.closest("[data-option]");
+  if (option) choosePerson(Number(option.dataset.option));
 };
-$("#new-person").onclick = () => {
-  for (const name of ["firstName", "lastName", "participantId"])
-    field($("#member-form"), name).value = "";
-  $("#existing-summary").textContent = "Выбрать ранее добавленного";
-  $("#new-person").hidden = true;
-  $("#existing-picker").open = false;
-  field($("#member-form"), "lastName").focus();
-};
+surname.onblur = closeSuggestions;
+$("#member-dialog").addEventListener("close", closeSuggestions);
 $("#team-form").onsubmit = protect(async () => {
   const b = Object.fromEntries(new FormData($("#team-form")));
   selected = await api(

@@ -106,38 +106,47 @@
       </form>
     </dialog>
     <dialog id="member-dialog">
-      <form id="member-form" class="stack">
+      <form id="member-form" class="stack" autocomplete="off">
         <h2>Участник команды</h2>
         <input name="participantId" type="hidden" />
-        <div id="existing-area" hidden>
-          <details id="existing-picker">
-            <summary id="existing-summary">Выбрать ранее добавленного</summary>
-            <label
-              >Поиск по фамилии и имени
-              <input
-                id="participant-search"
-                type="search"
-                autocomplete="off"
-                placeholder="Например, Иванов Алексей"
-                aria-describedby="participant-results-status"
-              />
-            </label>
-            <p id="participant-results-status" class="status" role="status"></p>
-            <div
-              id="participant-results"
-              class="participant-results"
-              role="group"
-              aria-label="Найденные участники"
-            ></div>
-          </details>
-          <button id="new-person" type="button" class="ghost" hidden>
-            Добавить нового вместо выбранного
-          </button>
-        </div>
         <div class="grid">
+          <div class="participant-combobox">
+            <label for="member-last-name">Фамилия</label>
+            <input
+              id="member-last-name"
+              name="lastName"
+              required
+              maxlength="100"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="participant-options"
+              aria-describedby="participant-selection"
+            />
+            <div id="participant-popup" hidden>
+              <div
+                id="participant-options"
+                role="listbox"
+                aria-label="Игроки и создание нового"
+              ></div>
+              <div
+                id="participant-results-status"
+                class="status"
+                role="status"
+              ></div>
+            </div>
+          </div>
           <label
-            >Фамилия<input name="lastName" required maxlength="100" /></label
-          ><label>Имя<input name="firstName" maxlength="80" /></label
+            >Имя<input
+              name="firstName"
+              maxlength="80"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false" /></label
           ><label>Номер<input name="number" maxlength="5" /></label
           ><label>Позиция<select name="position" id="position"></select></label>
         </div>
@@ -148,6 +157,7 @@
             ><input name="active" type="checkbox" checked />В заявке</label
           >
         </div>
+        <small id="participant-selection" role="status">Новый участник</small>
         <small>Имя и фамилия общие для всех команд этого участника.</small>
         <div class="row">
           <button type="submit" class="primary">Сохранить</button
