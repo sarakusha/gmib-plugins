@@ -80,16 +80,25 @@ async function command(value) {
   if (!token || !online || busy) return;
   busy = true;
   updateAccess();
+  const commandId = uid();
+  const matchId = data.state.id;
+  const send = () =>
+    api("commands", {
+      commandId,
+      controlToken: token,
+      matchId,
+      expectedRevision: data.state.revision,
+      command: value,
+    });
   try {
-    accept(
-      await api("commands", {
-        commandId: uid(),
-        controlToken: token,
-        matchId: data.state.id,
-        expectedRevision: data.state.revision,
-        command: value,
-      }),
-    );
+    try {
+      accept(await send());
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      await refresh();
+      if (data.state?.id !== matchId) throw error;
+      accept(await send());
+    }
     notify("");
   } catch (error) {
     await refresh().catch(() => {});
@@ -137,11 +146,6 @@ setInterval(() => {
         penalty.remainingMs -
           (!penalty.queued && state.clock.mode === "game" ? elapsed : 0),
       );
-  }
-  if (age > 3000 && online) {
-    online = false;
-    $("#connection").textContent = "Нет связи с gmib";
-    updateAccess();
   }
 }, 100);
 $("#claim").onclick = guard(async () => {

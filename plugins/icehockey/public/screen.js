@@ -71,12 +71,11 @@ const accept = (next) => {
 function frame() {
   const state = data?.state;
   const age = performance.now() - received;
-  $("#connection").textContent =
-    !online || age > 3000
-      ? "НЕТ СВЯЗИ С GMIB"
-      : data?.persistenceError
-        ? "ОШИБКА СОХРАНЕНИЯ"
-        : "";
+  $("#connection").textContent = !online
+    ? "НЕТ СВЯЗИ С GMIB"
+    : data?.persistenceError
+      ? "ОШИБКА СОХРАНЕНИЯ"
+      : "";
   if (state) {
     const elapsed = state.clock.running
       ? Math.min(age, 2000, state.clock.remainingMs)
