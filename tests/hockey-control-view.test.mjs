@@ -5,6 +5,23 @@ import {
   setText,
   setFlag,
 } from "../plugins/icehockey/public/control-view.js";
+import {
+  clockLayout,
+  clockParts,
+} from "../plugins/icehockey/public/clock-view.js";
+
+test("compact clock groups and explicit per-digit fallback are stable", () => {
+  assert.deepEqual(clockParts("19:08.3"), {
+    minutes: "19",
+    seconds: "08",
+    fractions: "3",
+    whole: "19:08",
+  });
+  assert.equal(clockLayout(""), "groups");
+  assert.equal(clockLayout("?clockLayout=groups"), "groups");
+  assert.equal(clockLayout("?clockLayout=digits"), "digits");
+  assert.equal(clockLayout("?clockLayout=unknown"), "groups");
+});
 
 test("clock ticks preserve controls; new match/revision and integration changes render", () => {
   const snapshot = {

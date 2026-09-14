@@ -12,6 +12,20 @@
   grid-template-columns: 0.62em 0.62em 0.28em 0.62em 0.62em;
   text-align: center;
 }
+.clock-groups {
+  display: grid;
+  grid-template-columns: 1.12em 0.22em 1.12em;
+  align-items: baseline;
+}
+.clock-minutes {
+  text-align: right;
+}
+.clock-colon {
+  text-align: center;
+}
+.clock-seconds {
+  text-align: left;
+}
 .clock-fractions {
   position: absolute;
   left: 100%;
