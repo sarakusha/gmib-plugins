@@ -1,4 +1,4 @@
-const CACHE = "icehockey-1.0.1";
+const CACHE = "icehockey-ui-1";
 const shell = [
   "control.html",
   "app.css",

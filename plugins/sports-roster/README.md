@@ -51,6 +51,7 @@ SQLite: `<gmib userData>/plugins/.data/sports-roster/rosters.sqlite3`.
 ## Разработка и проверка
 
 Backend — автономный CommonJS в `backend/main.cjs`; UI — HTML/CSS/JS без внешних зависимостей и CDN.
+До первой публикации версия плагина остаётся `1.0.0`; кеш PWA меняется отдельным ключом `sports-roster-ui-N`.
 Сборка из корня репозитория: `pnpm build`. Архив: `dist/sports-roster.gmib-plugin`.
 Тесты: `node --test tests/roster.test.mjs` (Node 24+, встроенный SQLite используется только тестами).
 В gmib SQLite предоставляет хост.

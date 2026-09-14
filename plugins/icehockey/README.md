@@ -100,6 +100,7 @@ UDP и управление с сетевых планшетов пока не �
 Для LAN-планшетов потребуется отдельный этап HTTPS, авторизации и передачи управления.
 
 Backend — CommonJS в `backend/`, UI — автономный HTML/CSS/JS без npm runtime и CDN.
+До первой публикации версия плагина остаётся `1.0.0`; кеш PWA меняется отдельным ключом `icehockey-ui-N`.
 Из корня репозитория: `pnpm test`, `pnpm validate`, `pnpm build`.
 Архив: `dist/icehockey.gmib-plugin`. Тесты используют Node 24+ и встроенный SQLite;
 в gmib используется драйвер хоста.
