@@ -7,6 +7,12 @@
   "main": "backend/main.cjs",
   "public": "public",
   "localOnly": true,
-  "permissions": ["http.routes", "database", "services.provide", "plugins.read", "realtime"],
+  "permissions": [
+    "http.routes",
+    "database",
+    "services.provide",
+    "plugins.read",
+    "realtime"
+  ],
   "control": { "title": "Составы команд", "path": "control.html" }
 }
