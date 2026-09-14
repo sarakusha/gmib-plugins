@@ -1,4 +1,5 @@
 import { $, esc, api, realtime, time } from "./common.js";
+import { renderClock } from "./clock-view.js";
 let data,
   received = 0,
   online = false,
@@ -17,10 +18,6 @@ const accept = (next) => {
   const state = next.state;
   $("#waiting").hidden = Boolean(state);
   if (!state) return;
-  $("#board").style.setProperty(
-    "--digits",
-    Math.max(String(state.home.score).length, String(state.away.score).length),
-  );
   const roster = forceRoster || state.view === "rosters";
   $("#rosters").hidden = !roster;
   $("#scoreboard").hidden = roster;
@@ -45,9 +42,12 @@ const accept = (next) => {
         ? "ПЕРЕРЫВ"
         : state.clock.mode === "timeout"
           ? "ТАЙМ-АУТ"
-          : state.clock.running
-            ? ""
-            : "ПАУЗА";
+          : "";
+  $("#time").dataset.running = String(state.clock.running);
+  $("#time").setAttribute(
+    "aria-label",
+    state.clock.running ? "Часы идут" : "Часы остановлены",
+  );
   const signature = `${state.id}:${JSON.stringify([state.home.members, state.away.members])}`;
   if (signature !== rosterSignature) {
     rosterSignature = signature;
@@ -80,17 +80,29 @@ function frame() {
     const elapsed = state.clock.running
       ? Math.min(age, 2000, state.clock.remainingMs)
       : 0;
-    $("#time").textContent = time(state.clock.remainingMs - elapsed);
+    renderClock(
+      $("#time"),
+      time(state.clock.remainingMs - elapsed),
+      state.clock.running,
+    );
     for (const side of ["home", "away"]) {
       const penalties = state.penalties
         .filter((p) => p.side === side && !p.queued)
         .slice(0, 2);
-      $(`#${side}-penalties`).innerHTML = penalties
-        .map(
-          (p) =>
-            `<span>№ ${esc(p.number)}<br>${time(p.remainingMs - (state.clock.mode === "game" ? elapsed : 0))}</span>`,
-        )
-        .join("");
+      const root = $(`#${side}-penalties`);
+      for (let index = 0; index < 2; index++) {
+        let slot = root.children[index];
+        if (!slot) {
+          slot = document.createElement("div");
+          slot.className = "penalty-slot";
+          root.append(slot);
+        }
+        const p = penalties[index];
+        const markup = p
+          ? `<span class="penalty-number">${esc(p.number)}</span><span class="penalty-time">${time(p.remainingMs - (state.clock.mode === "game" ? elapsed : 0))}</span>`
+          : "";
+        if (slot.innerHTML !== markup) slot.innerHTML = markup;
+      }
     }
   }
   requestAnimationFrame(frame);

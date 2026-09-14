@@ -1,0 +1,22 @@
+.clock-face {
+  display: inline-block;
+  position: relative;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-kerning: none;
+  letter-spacing: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.clock-digits {
+  display: grid;
+  grid-template-columns: 0.62em 0.62em 0.28em 0.62em 0.62em;
+  text-align: center;
+}
+.clock-fractions {
+  position: absolute;
+  left: 100%;
+  bottom: 0.08em;
+  width: 2.1ch;
+  font-size: 0.45em;
+  text-align: left;
+}

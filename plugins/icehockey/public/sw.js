@@ -1,8 +1,10 @@
-const CACHE = "icehockey-ui-2";
+const CACHE = "icehockey-ui-3";
 const shell = [
   "control.html",
   "app.css",
   "common.js",
+  "clock-view.js",
+  "clock-face.css",
   "control.js",
   "manifest.webmanifest",
   "icon.svg",

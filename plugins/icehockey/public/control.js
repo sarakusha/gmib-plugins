@@ -1,4 +1,5 @@
 import { $, esc, api, notify, realtime, time, uid } from "./common.js";
+import { renderClock } from "./clock-view.js";
 let data,
   received = performance.now(),
   online = false,
@@ -56,6 +57,7 @@ function accept(next) {
   $("#period").textContent =
     `${state.period > 3 ? "Овертайм · " : ""}Период ${state.period}${state.clock.mode === "rest" ? " / Перерыв" : state.clock.mode === "timeout" ? " / Тайм-аут" : ""}`;
   $("#clock").textContent = state.clock.running ? "Пауза" : "Старт";
+  $("#timer").dataset.running = String(state.clock.running);
   $("#return").hidden = state.clock.mode === "game";
   $("#view").textContent =
     state.view === "rosters" ? "Показать счёт" : "Показать составы";
@@ -121,7 +123,7 @@ function renderPenalties() {
         ? list
             .map(
               (p) =>
-                `<div class="penalty"><div><span class="subtitle">№ ${esc(p.number)}</span><br><strong class="number" data-time="${esc(p.id)}"></strong> ${p.queued ? "<small>ожидает</small>" : ""}</div><div class="row"><button data-penalty-edit="${esc(p.id)}" data-control aria-label="Исправить время штрафа">Время</button><button data-penalty-queue="${esc(p.id)}" data-control>${p.queued ? "Запустить" : "Отложить"}</button><button data-penalty-remove="${esc(p.id)}" class="danger" data-control aria-label="Снять штраф">×</button></div></div>`,
+                `<div class="penalty"><div class="penalty-reading"><span class="penalty-number">${esc(p.number)}</span><strong class="number" data-time="${esc(p.id)}"></strong><small>${p.queued ? "ожидает" : ""}</small></div><div class="row"><button data-penalty-edit="${esc(p.id)}" data-control aria-label="Исправить время штрафа">Время</button><button data-penalty-queue="${esc(p.id)}" data-control>${p.queued ? "Запустить" : "Отложить"}</button><button data-penalty-remove="${esc(p.id)}" class="danger" data-control aria-label="Снять штраф">×</button></div></div>`,
             )
             .join("")
         : '<p class="muted">Нет штрафов</p>';
@@ -136,7 +138,11 @@ setInterval(() => {
   const elapsed = state.clock.running
     ? Math.min(age, 2000, state.clock.remainingMs)
     : 0;
-  $("#timer").textContent = time(state.clock.remainingMs - elapsed);
+  renderClock(
+    $("#timer"),
+    time(state.clock.remainingMs - elapsed),
+    state.clock.running,
+  );
   for (const penalty of state.penalties) {
     const node = document.querySelector(
       `[data-time="${CSS.escape(penalty.id)}"]`,

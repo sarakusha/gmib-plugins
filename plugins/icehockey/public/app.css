@@ -1,3 +1,4 @@
+@import url("clock-face.css");
 * {
   box-sizing: border-box;
 }
@@ -13,6 +14,9 @@
   color-scheme: dark;
   --accent: #40d9ac;
   --muted: #9baaa3;
+  --clock-running: #eab308;
+  --clock-stopped: #ef4444;
+  scrollbar-gutter: stable;
 }
 body {
   margin: 0;
@@ -238,6 +242,9 @@ th:first-child {
   font-size: 22px;
   font-weight: 650;
   overflow-wrap: anywhere;
+  height: 2.5em;
+  line-height: 1.25;
+  overflow: hidden;
 }
 .score {
   font-size: 92px;
@@ -272,6 +279,53 @@ th:first-child {
   letter-spacing: -3px;
   white-space: nowrap;
   margin: 18px 0;
+  color: var(--clock-stopped);
+}
+.timer[data-running="true"] {
+  color: var(--clock-running);
+}
+.arena > div {
+  min-width: 0;
+}
+.clock-panel #period {
+  height: 2.5em;
+  line-height: 1.25;
+}
+#integration-status {
+  height: 2.5em;
+  overflow: auto;
+}
+#save-status {
+  height: 3.75em;
+  overflow: auto;
+}
+#return[hidden] {
+  display: inline-block !important;
+  visibility: hidden;
+}
+#penalties-home,
+#penalties-away {
+  height: 260px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.penalty-reading {
+  display: grid;
+  grid-template-columns: 3ch 5ch;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.penalty-reading small {
+  grid-column: 1 / -1;
+  height: 1.25em;
+}
+.penalty-number {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
 }
 .clock-action {
   min-width: 170px;
@@ -295,6 +349,7 @@ th:first-child {
 }
 .penalty .row {
   gap: 4px;
+  justify-content: flex-end;
 }
 .penalty button {
   padding: 8px;
