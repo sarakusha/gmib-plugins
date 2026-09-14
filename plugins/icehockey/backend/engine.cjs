@@ -53,7 +53,6 @@ const createMatch = (input, now) => ({
     running: false,
     anchorMs: now,
     mode: "game",
-    displayDelayMs: 0,
   },
   secondaryClock: null,
   timeoutLimit: integer(
@@ -72,8 +71,9 @@ const createMatch = (input, now) => ({
 const materialize = (previous, now) => {
   const state = structuredClone(previous);
   normalizeTimeoutState(state, 1);
-  if (!Number.isFinite(state.clock.displayDelayMs))
-    state.clock.displayDelayMs = 0;
+  // Older development builds stored the display phase separately. The current
+  // primary value is the only source of truth for display synchronization.
+  delete state.clock.displayDelayMs;
   // Early development builds replaced the primary clock with a timeout.
   // Restore those saved matches to a paused game clock once.
   if (state.clock.mode === "timeout") {
@@ -82,7 +82,6 @@ const materialize = (previous, now) => {
       running: false,
       anchorMs: now,
       mode: "game",
-      displayDelayMs: 0,
     };
     state.gameRemainingMs = null;
   }
@@ -92,7 +91,6 @@ const materialize = (previous, now) => {
   state.clock.remainingMs = Math.max(0, state.clock.remainingMs - elapsed);
   state.clock.anchorMs = now;
   if (state.clock.mode === "game") {
-    state.clock.displayDelayMs = (state.clock.displayDelayMs + elapsed) % 1000;
     state.penalties = state.penalties
       .map((penalty) => ({
         ...penalty,
@@ -128,7 +126,6 @@ const applyCommand = (previous, command, now) => {
       if (state.secondaryClock) fail("Сначала остановите тайм-аут");
       if (state.clock.running) fail("Остановите часы перед коррекцией");
       state.clock.remainingMs = integer(b.valueMs, 0, 3600000, "время");
-      state.clock.displayDelayMs = 0;
       break;
     case "score": {
       const team = state[side(b.side)];
@@ -153,7 +150,6 @@ const applyCommand = (previous, command, now) => {
       state.clock.remainingMs = duration(
         b.durationMs ?? state.periodDurationMs,
       );
-      state.clock.displayDelayMs = 0;
       break;
     case "interval":
       if (state.clock.mode !== "game")
@@ -166,7 +162,6 @@ const applyCommand = (previous, command, now) => {
         mode: b.mode,
         running: false,
         anchorMs: now,
-        displayDelayMs: 0,
       };
       break;
     case "return":
@@ -176,7 +171,6 @@ const applyCommand = (previous, command, now) => {
         mode: "game",
         running: false,
         anchorMs: now,
-        displayDelayMs: 0,
       };
       state.gameRemainingMs = null;
       break;

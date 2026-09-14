@@ -64,7 +64,8 @@ test("timeout runs as a secondary clock while the primary clock remains visible"
   );
   assert.equal(state.clock.running, false);
   assert.equal(state.clock.remainingMs, 139445);
-  assert.equal(state.clock.displayDelayMs, 555);
+  assert.equal(state.clock.remainingMs % 1000, 445);
+  assert.equal("displayDelayMs" in state.clock, false);
   assert.equal(state.secondaryClock.running, true);
   assert.equal(state.secondaryClock.remainingMs, 30000);
   assert.equal(state.home.timeoutsUsed, 1);

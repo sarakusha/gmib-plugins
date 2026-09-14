@@ -11,6 +11,10 @@ import {
   penaltyTime,
 } from "../plugins/icehockey/public/clock-view.js";
 import {
+  primaryDisplayPhase,
+  wholeSeconds,
+} from "../packages/sports-ui/time.js";
+import {
   projectedClockMs,
   timeoutCanStart,
   timeoutCount,
@@ -29,13 +33,28 @@ test("compact clock groups and explicit per-digit fallback are stable", () => {
   assert.equal(clockLayout("?clockLayout=unknown"), "groups");
 });
 
-test("penalty time follows the primary clock phase then shows final tenths", () => {
-  assert.equal(penaltyTime(59555, 766), "1:00");
-  assert.equal(penaltyTime(59321, 0), "0:59");
-  assert.equal(penaltyTime(950, 999), "1.0");
-  assert.equal(penaltyTime(900, 0), "0.9");
-  assert.equal(penaltyTime(1, 0), "0.1");
-  assert.equal(penaltyTime(0, 0), "");
+test("whole seconds follow the timer direction", () => {
+  assert.equal(wholeSeconds(42_001, true), 43);
+  assert.equal(wholeSeconds(42_001, false), 42);
+  assert.equal(primaryDisplayPhase(42_001, true), 999);
+  assert.equal(primaryDisplayPhase(42_001, false), 1);
+});
+
+test("penalty changes on the same boundary as a countdown primary clock", () => {
+  assert.equal(penaltyTime(119_656, 1_122_001, true), "2:00");
+  assert.equal(penaltyTime(119_655, 1_122_000, true), "1:59");
+});
+
+test("penalty changes on the same boundary as a count-up primary clock", () => {
+  assert.equal(penaltyTime(119_778, 999, false), "2:00");
+  assert.equal(penaltyTime(119_777, 1_000, false), "1:59");
+});
+
+test("penalty shows unshifted tenths during its final second", () => {
+  assert.equal(penaltyTime(950, 42_999, true), "1.0");
+  assert.equal(penaltyTime(900, 42_000, true), "0.9");
+  assert.equal(penaltyTime(1, 42_000, true), "0.1");
+  assert.equal(penaltyTime(0, 42_000, true), "");
 });
 
 test("shared timeout view supports sport-specific limits", () => {

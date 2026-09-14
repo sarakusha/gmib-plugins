@@ -102,10 +102,7 @@ function frame() {
         secondary.running,
       );
     }
-    const displayDelay =
-      ((state.clock.displayDelayMs ?? 0) +
-        (state.clock.running && state.clock.mode === "game" ? elapsed : 0)) %
-      1000;
+    const primaryValueMs = state.clock.remainingMs - elapsed;
     for (const side of ["home", "away"]) {
       const penalties = state.penalties
         .filter((p) => p.side === side && !p.queued)
@@ -120,7 +117,7 @@ function frame() {
         }
         const p = penalties[index];
         const markup = p
-          ? `<span class="penalty-number">${esc(p.number)}</span><span class="penalty-time">${penaltyTime(p.remainingMs - (state.clock.running && state.clock.mode === "game" ? elapsed : 0), displayDelay)}</span>`
+          ? `<span class="penalty-number">${esc(p.number)}</span><span class="penalty-time">${penaltyTime(p.remainingMs - (state.clock.running && state.clock.mode === "game" ? elapsed : 0), primaryValueMs, true)}</span>`
           : "";
         if (slot.innerHTML !== markup) slot.innerHTML = markup;
       }

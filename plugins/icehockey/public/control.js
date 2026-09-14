@@ -197,10 +197,7 @@ setInterval(() => {
       secondary.running,
     );
   }
-  const displayDelay =
-    ((state.clock.displayDelayMs ?? 0) +
-      (state.clock.running && state.clock.mode === "game" ? elapsed : 0)) %
-    1000;
+  const primaryValueMs = state.clock.remainingMs - elapsed;
   for (const penalty of state.penalties) {
     const node = document.querySelector(
       `[data-time="${CSS.escape(penalty.id)}"]`,
@@ -213,7 +210,8 @@ setInterval(() => {
           state.clock.mode === "game"
             ? elapsed
             : 0),
-        displayDelay,
+        primaryValueMs,
+        true,
       );
   }
 }, 100);
