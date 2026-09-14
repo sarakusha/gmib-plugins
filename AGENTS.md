@@ -427,3 +427,28 @@ zip -r ../my-plugin.gmib-plugin manifest.json dist public \
 Примеры помогают с композицией, но эта инструкция и `gmib-plugin-api.d.ts` являются достаточной
 спецификацией API 1.0. Не требуется и не следует читать исходники gmib, чтобы выполнить обычную
 задачу создания плагина.
+
+
+## Расширения API 1.1
+
+Для новых спортивных плагинов используйте `gmibApi: "^1.1.0"` и актуальные типы
+`gmib-plugin-api.d.ts`; разделы выше описывают совместимый API 1.0.
+
+- `dependencies` и `optionalDependencies`: объект pluginId → SemVer-диапазон. Обязательная
+  зависимость загружается первой; отсутствие/ошибка необязательной не блокирует потребителя.
+- `contributes.sports`: массив `{ id, name, rosterVersion, positions: [{ id, name }] }`.
+  Список доступен через `context.plugins.listSports()` с permission `plugins.read`, ещё до активации
+  всех видов; проверяйте `ready` перед использованием backend спорта.
+- `localOnly: true`: страницы и realtime доступны только локально; HTTP-маршруты только `local`.
+- `database`: `context.database.open(name, migrations)`; миграции `{ version, sql }` с 1 подряд.
+  База предоставляет `all/get/run/transaction`. В callback транзакции используйте только `tx`
+  и ожидайте все операции. Применённые миграции неизменяемы. Драйвер предоставляет gmib.
+- `services.provide`: `context.services.provide(name, version, object)`.
+- `services.consume`: `context.services.require(pluginId, name, range)`; зависимость должна быть
+  объявлена. Для optionalDependencies обрабатывайте недоступность сервиса, сохраняя ручной режим.
+- `context.clock.now()` — монотонные миллисекунды, `onSuspend/onResume` возвращают unsubscribe.
+- `context.lifecycle.onDispose(callback)` вызывается при ошибке активации и выходе в обратном порядке
+  регистрации; здесь очищайте интервалы и сохраняйте финальное состояние. Базы закрывает хост.
+
+`icehockey` должен работать без `sports-roster`: ручные команды, часы и штрафы по номеру игрока.
+Справочник составов — исключительно необязательное расширение.

@@ -10,7 +10,7 @@ export const pluginsRoot = path.join(repositoryRoot, 'plugins');
 export const outputRoot = path.join(repositoryRoot, 'dist');
 
 const ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
-const allowedPermissions = new Set(['http.routes', 'storage', 'realtime', 'output.pages']);
+const allowedPermissions = new Set(['http.routes', 'storage', 'realtime', 'output.pages', 'database', 'services.provide', 'services.consume', 'plugins.read', 'output.control', 'nibus.read', 'nibus.write']);
 // ZIP stores calendar fields without a timezone. A local Date constructor therefore produces the
 // same metadata in every timezone, unlike parsing an absolute UTC timestamp.
 const fixedArchiveTime = new Date(2000, 0, 1, 0, 0, 0);
@@ -76,8 +76,8 @@ export const readManifest = async pluginId => {
   const version = requiredString(raw.version, 'version');
   if (!semver.valid(version)) throw new Error(`${pluginId}: version должна быть SemVer-версией`);
   const gmibApi = requiredString(raw.gmibApi, 'gmibApi');
-  if (!semver.validRange(gmibApi) || !semver.satisfies('1.0.0', gmibApi)) {
-    throw new Error(`${pluginId}: gmibApi должен включать Plugin API 1.0.0`);
+  if (!semver.validRange(gmibApi) || !semver.satisfies('1.1.0', gmibApi)) {
+    throw new Error(`${pluginId}: gmibApi должен включать Plugin API 1.1.0`);
   }
   requiredString(raw.name, 'name');
   if (raw.description !== undefined) requiredString(raw.description, 'description');
@@ -129,6 +129,31 @@ export const readManifest = async pluginId => {
     await assertFile(pluginDirectory, path.posix.join(publicRoot, controlPath), 'control.path');
   }
 
+  for (const dependencies of [raw.dependencies, raw.optionalDependencies]) {
+  if (dependencies !== undefined) {
+    if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) throw new Error('dependencies должен быть объектом');
+    for (const [dependency, range] of Object.entries(dependencies)) {
+      if (!ID_PATTERN.test(dependency) || dependency === id || typeof range !== 'string' || !semver.validRange(range)) throw new Error(`Недопустимая зависимость: ${dependency}`);
+    }
+  }
+  }
+  if (raw.localOnly !== undefined && typeof raw.localOnly !== 'boolean') throw new Error('localOnly должен быть boolean');
+  if (raw.contributes !== undefined) {
+    if (!raw.contributes || !Array.isArray(raw.contributes.sports)) throw new Error('contributes.sports должен быть массивом');
+    const sports = new Set();
+    for (const sport of raw.contributes.sports) {
+      if (!sport || !ID_PATTERN.test(sport.id) || sports.has(sport.id)) throw new Error('Недопустимый sport.id');
+      sports.add(sport.id);
+      requiredString(sport.name, 'sport.name');
+      if (!Number.isSafeInteger(sport.rosterVersion) || sport.rosterVersion < 1 || !Array.isArray(sport.positions)) throw new Error('Недопустимая схема состава');
+      const positions = new Set();
+      for (const position of sport.positions) {
+        if (!position || !ID_PATTERN.test(position.id) || positions.has(position.id)) throw new Error('Недопустимая позиция');
+        positions.add(position.id);
+        requiredString(position.name, 'position.name');
+      }
+    }
+  }
   return raw;
 };
 
