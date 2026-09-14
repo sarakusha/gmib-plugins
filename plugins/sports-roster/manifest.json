@@ -1,7 +1,7 @@
 {
   "id": "sports-roster",
   "name": "Составы команд",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Общий справочник команд и участников для спортивных плагинов.",
   "gmibApi": "^1.1.0",
   "main": "backend/main.cjs",

@@ -1,7 +1,7 @@
 {
   "id": "icehockey",
-  "name": "Хоккей · Light",
-  "version": "1.0.0",
+  "name": "Хоккей",
+  "version": "1.0.1",
   "description": "Счёт, системный таймер и штрафы. Работает без базы составов.",
   "gmibApi": "^1.1.0",
   "main": "backend/main.cjs",

@@ -1,7 +1,7 @@
 {
   "id": "./control.html",
-  "name": "Хоккей · Light",
-  "short_name": "Хоккей · Light",
+  "name": "Хоккей",
+  "short_name": "Хоккей",
   "start_url": "./control.html",
   "scope": "./",
   "display": "standalone",

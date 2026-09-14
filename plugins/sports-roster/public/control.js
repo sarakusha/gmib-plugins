@@ -36,7 +36,7 @@ async function loadTeams() {
     ? "Доступен"
     : sport
       ? "Плагин спорта недоступен. Составы сохранены."
-      : "Установите спортивный плагин, например «Хоккей · Light».";
+      : "Установите спортивный плагин, например «Хоккей».";
   $("#new-team").disabled = !sport?.ready;
   selected = teams.find((team) => team.id === selected?.id) ?? teams[0];
   $("#teams").innerHTML = teams
