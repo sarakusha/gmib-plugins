@@ -16,6 +16,7 @@ https://raw.githubusercontent.com/sarakusha/gmib-plugins/main/catalog.json
 
 ## Плагины
 
+- [`sports-roster`](plugins/sports-roster/README.md) — общая база команд и составов, локальная PWA;
 - `parking-counter` — минимальный полный пример со страницей вывода и управления;
 - `shader-screensavers` — адаптивные WebGL-заставки;
 - `yoshka-esh` — портретное парковочное табло с фирменным оформлением.

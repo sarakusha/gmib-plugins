@@ -1,0 +1,12 @@
+{
+  "id": "sports-roster",
+  "name": "Составы команд",
+  "version": "1.0.0",
+  "description": "Общий справочник команд и участников для спортивных плагинов.",
+  "gmibApi": "^1.1.0",
+  "main": "backend/main.cjs",
+  "public": "public",
+  "localOnly": true,
+  "permissions": ["http.routes", "database", "services.provide", "plugins.read", "realtime"],
+  "control": { "title": "Составы команд", "path": "control.html" }
+}
