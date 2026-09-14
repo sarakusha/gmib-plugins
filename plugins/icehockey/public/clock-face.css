@@ -13,17 +13,29 @@
   text-align: center;
 }
 .clock-groups {
-  display: grid;
-  grid-template-columns: 1.12em 0.22em 1.12em;
+  display: inline-flex;
   align-items: baseline;
+  line-height: 1.2;
+}
+.clock-minutes,
+.clock-colon,
+.clock-seconds {
+  line-height: inherit;
+  white-space: nowrap;
 }
 .clock-minutes {
+  display: inline-block;
+  min-width: 2ch;
   text-align: right;
 }
 .clock-colon {
+  position: relative;
+  top: -0.05em;
   text-align: center;
 }
 .clock-seconds {
+  display: inline-block;
+  min-width: 2ch;
   text-align: left;
 }
 .clock-fractions {
