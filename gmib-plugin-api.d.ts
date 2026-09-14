@@ -1,8 +1,8 @@
-/** Public authoring types for gmib Plugin API 1.0. */
+/** Public authoring types for gmib Plugin API 1.1. */
 
-export const GMIB_PLUGIN_API_VERSION: '1.0.0';
+export const GMIB_PLUGIN_API_VERSION: '1.1.0';
 
-export type PluginPermission = 'http.routes' | 'storage' | 'realtime' | 'output.pages';
+export type PluginPermission = 'http.routes' | 'storage' | 'realtime' | 'output.pages' | 'database' | 'services.provide' | 'services.consume' | 'plugins.read' | 'output.control' | 'nibus.read' | 'nibus.write';
 
 export type PluginOutputPage = {
   id: string;
@@ -24,6 +24,10 @@ export type PluginManifest = {
   main?: string;
   public?: string;
   permissions?: PluginPermission[];
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  contributes?: { sports: PluginSport[] };
+  localOnly?: boolean;
   pages?: PluginOutputPage[];
   control?: PluginControlPage;
 };
@@ -63,7 +67,7 @@ export type PluginLogger = {
   warn: (...args: unknown[]) => void;
 };
 
-export type PluginContext = {
+export type PluginContext = PluginServicesContext & {
   apiVersion: string;
   plugin: Readonly<PluginManifest>;
   logger: PluginLogger;
@@ -106,3 +110,50 @@ export type PluginEventMessage<T = unknown> = {
   event: `plugin:${string}:${string}`;
   data: [T | null];
 };
+
+
+
+export type PluginUnsubscribe = () => void;
+export type PluginSqlValue = string | number | null | Uint8Array;
+export type PluginMigration = { version: number; sql: string };
+export type PluginSql = {
+  all: <T = Record<string, unknown>>(sql: string, params?: PluginSqlValue[]) => Promise<T[]>;
+  get: <T = Record<string, unknown>>(
+    sql: string,
+    params?: PluginSqlValue[],
+  ) => Promise<T | undefined>;
+  run: (sql: string, params?: PluginSqlValue[]) => Promise<{ changes: number; lastID: number }>;
+};
+export type PluginDatabase = PluginSql & {
+  transaction: <T>(work: (transaction: PluginSql) => Promise<T>) => Promise<T>;
+};
+export type PluginServicesContext = {
+  database: { open: (name: string, migrations: PluginMigration[]) => Promise<PluginDatabase> };
+  services: {
+    provide: (name: string, version: string, service: object) => void;
+    require: <T extends object>(pluginId: string, name: string, range: string) => T;
+  };
+  plugins: { listSports: () => PluginSportStatus[] };
+  lifecycle: { onDispose: (handler: () => void | Promise<void>) => void };
+  clock: {
+    now: () => number;
+    onSuspend: (handler: () => void) => PluginUnsubscribe;
+    onResume: (handler: () => void) => PluginUnsubscribe;
+  };
+};
+
+export type PluginSport = {
+  id: string;
+  name: string;
+  rosterVersion: number;
+  positions: Array<{ id: string; name: string }>;
+};
+
+export type PluginSportStatus = PluginSport & {
+  pluginId: string;
+  installed: boolean;
+  enabled: boolean;
+  ready: boolean;
+  error?: string;
+};
+
