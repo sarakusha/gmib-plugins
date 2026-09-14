@@ -428,7 +428,6 @@ zip -r ../my-plugin.gmib-plugin manifest.json dist public \
 спецификацией API 1.0. Не требуется и не следует читать исходники gmib, чтобы выполнить обычную
 задачу создания плагина.
 
-
 ## Расширения API 1.1
 
 Для новых спортивных плагинов используйте `gmibApi: "^1.1.0"` и актуальные типы
@@ -452,3 +451,20 @@ zip -r ../my-plugin.gmib-plugin manifest.json dist public \
 
 `icehockey` должен работать без `sports-roster`: ручные команды, часы и штрафы по номеру игрока.
 Справочник составов — исключительно необязательное расширение.
+
+### Вывод и NiBUS API 1.1
+
+`output.control` предоставляет `listScreens/getStatus/start/stop`. Профиль `{ screenId, pageId,
+autoStart }` ссылается на настроенный экран gmib и страницу этого плагина. Создание геометрии остаётся
+в gmib. `start` не означает, что отключённый физический дисплей уже показывает изображение;
+проверяйте `getStatus`.
+
+`nibus.read`: `listConnections`, `onConnectionChange`, `onInformationReport(filter, callback)`.
+События типизированы как timer/score/period/teamName/penalties; RAW-датаграмм нет.
+`nibus.write`: `acquireOutput({ connectionId, target, profile: 'matchpad' })` возвращает
+`sendTimer/sendScoreboard/sendPenalties/sendTeams/release`. Успех означает постановку в очередь.
+Профиль поддерживает два штрафа на сторону, BCD-номера 0–99; валидируйте ограничения в UI.
+Горячая переустановка не поддерживается. Ресурсы освобождаются хостом при завершении плагина.
+
+У каждого нового плагина обязателен собственный `README.md`: назначение, запуск, возможности,
+настройки, хранение данных, ограничения и проверка. Общий README содержит каталог и общие правила.

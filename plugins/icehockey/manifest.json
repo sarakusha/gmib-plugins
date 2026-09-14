@@ -1,0 +1,40 @@
+{
+  "id": "icehockey",
+  "name": "Хоккей · Light",
+  "version": "1.0.0",
+  "description": "Счёт, системный таймер и штрафы. Работает без базы составов.",
+  "gmibApi": "^1.1.0",
+  "main": "backend/main.cjs",
+  "public": "public",
+  "localOnly": true,
+  "optionalDependencies": { "sports-roster": "^1.0.0" },
+  "contributes": {
+    "sports": [
+      {
+        "id": "icehockey",
+        "name": "Хоккей",
+        "rosterVersion": 1,
+        "positions": [
+          { "id": "skater", "name": "Полевой игрок" },
+          { "id": "goalie", "name": "Вратарь" }
+        ]
+      }
+    ]
+  },
+  "permissions": [
+    "http.routes",
+    "database",
+    "services.consume",
+    "realtime",
+    "output.pages",
+    "storage",
+    "output.control",
+    "nibus.read",
+    "nibus.write"
+  ],
+  "pages": [
+    { "id": "screen", "title": "Хоккей/Табло", "path": "screen.html" },
+    { "id": "rosters", "title": "Хоккей/Составы", "path": "rosters.html" }
+  ],
+  "control": { "title": "Пульт хоккея", "path": "control.html" }
+}

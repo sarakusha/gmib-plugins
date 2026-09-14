@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#111715" />
+    <title>Хоккей · Light</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="brand">gmib / hockey</div>
+        <h1>Хоккей · Light</h1>
+        <p id="connection">Подключение к gmib…</p>
+      </div>
+      <div class="row">
+        <span id="control-status" class="status"></span
+        ><button id="claim" class="primary">Взять управление</button
+        ><button id="release" class="ghost" hidden>Освободить пульт</button>
+      </div>
+    </header>
+    <main style="margin: auto">
+      <div id="notice" hidden></div>
+      <div class="row spread toolbar">
+        <div class="row">
+          <button id="new" class="ghost" data-control>Новая игра</button
+          ><button id="history" class="ghost">Сохранённые игры</button
+          ><a
+            id="roster-link"
+            href="../sports-roster/control.html"
+            target="_blank"
+            hidden
+            >Составы команд ↗</a
+          >
+        </div>
+        <div class="row">
+          <a href="screen.html" target="_blank">Открыть табло ↗</a
+          ><button id="settings" class="ghost">Вывод и NiBUS</button>
+        </div>
+      </div>
+      <div id="empty" class="empty">
+        <h2>Готовы к игре</h2>
+        Возьмите управление и создайте матч. Для счёта, времени и штрафов база
+        составов не нужна.
+      </div>
+      <section id="match" hidden>
+        <div class="arena">
+          <div>
+            <div class="subtitle">Хозяева</div>
+            <div id="home-name" class="team-name"></div>
+            <button
+              id="home-score"
+              class="score score-value"
+              data-control
+              aria-label="Исправить счёт хозяев"
+            >
+              0
+            </button>
+            <div class="score-control">
+              <button
+                data-score="home:-1"
+                data-control
+                aria-label="Уменьшить счёт хозяев"
+              >
+                −</button
+              ><button
+                data-score="home:1"
+                data-control
+                aria-label="Увеличить счёт хозяев"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="clock-panel">
+            <div id="period" class="subtitle"></div>
+            <div id="timer" class="timer">20:00</div>
+            <div class="row" style="justify-content: center">
+              <button id="clock" class="primary clock-action" data-control>
+                Старт</button
+              ><button id="correct-time" class="ghost" data-control>
+                Время
+              </button>
+            </div>
+            <div
+              id="integration-status"
+              class="status"
+              style="margin-top: 10px"
+            ></div>
+            <div id="save-status" class="status" style="margin-top: 14px"></div>
+          </div>
+          <div>
+            <div class="subtitle">Гости</div>
+            <div id="away-name" class="team-name"></div>
+            <button
+              id="away-score"
+              class="score score-value"
+              data-control
+              aria-label="Исправить счёт гостей"
+            >
+              0
+            </button>
+            <div class="score-control">
+              <button
+                data-score="away:-1"
+                data-control
+                aria-label="Уменьшить счёт гостей"
+              >
+                −</button
+              ><button
+                data-score="away:1"
+                data-control
+                aria-label="Увеличить счёт гостей"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="row spread" style="padding-top: 20px">
+          <div class="row">
+            <button id="next-period" data-control>Период</button
+            ><button id="rest" data-control>Перерыв</button
+            ><button id="timeout" data-control>Тайм-аут</button
+            ><button id="return" data-control hidden>Вернуться к игре</button>
+          </div>
+          <div class="row">
+            <button id="view" class="ghost" data-control>
+              Показать составы</button
+            ><button id="undo" class="ghost" data-control>
+              Отменить действие</button
+            ><button id="finish" class="danger" data-control>Завершить</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="row spread">
+            <h2>Штрафы</h2>
+            <button id="add-penalty" class="primary" data-control>
+              Добавить штраф
+            </button>
+          </div>
+          <div class="penalties">
+            <div>
+              <h3 id="penalty-home-name"></h3>
+              <div id="penalties-home"></div>
+            </div>
+            <div>
+              <h3 id="penalty-away-name"></h3>
+              <div id="penalties-away"></div>
+            </div>
+          </div>
+          <p class="muted" style="font-size: 13px; margin-top: 20px">
+            Штрафы идут вместе с игровыми часами. Снятие после гола и порядок
+            отложенных штрафов задаёт оператор.
+          </p>
+        </div>
+      </section>
+    </main>
+    <dialog id="new-dialog">
+      <form id="new-form" class="stack">
+        <h2>Новая игра</h2>
+        <div class="grid">
+          <label
+            >Хозяева<input
+              name="home"
+              value="Хозяева"
+              required
+              maxlength="100" /></label
+          ><label
+            >Гости<input name="away" value="Гости" required maxlength="100"
+          /></label>
+        </div>
+        <label
+          >Длительность периода, минут<input
+            name="minutes"
+            type="number"
+            value="20"
+            min="1"
+            max="60"
+            required
+        /></label>
+        <details id="roster-picker" hidden>
+          <summary>Выбрать команды из справочника</summary>
+          <div class="grid">
+            <label
+              >Хозяева<select name="homeTeamId" id="home-team"></select></label
+            ><label
+              >Гости<select name="awayTeamId" id="away-team"></select
+            ></label>
+          </div>
+          <div class="grid" style="margin-top: 16px">
+            <div id="home-players"></div>
+            <div id="away-players"></div>
+          </div>
+          <small
+            >Состав сохраняется в матче. Оставьте «Вручную», чтобы играть без
+            заявки.</small
+          >
+        </details>
+        <div class="row">
+          <button type="submit" class="primary">Создать игру</button
+          ><button type="button" data-close>Отмена</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="penalty-dialog">
+      <form id="penalty-form" class="stack">
+        <h2>Штраф</h2>
+        <div class="grid">
+          <label
+            >Команда<select name="side">
+              <option value="home">Хозяева</option>
+              <option value="away">Гости</option>
+            </select></label
+          ><label
+            >Номер игрока<input
+              name="number"
+              list="player-numbers"
+              required
+              maxlength="5" /><datalist id="player-numbers"></datalist></label
+          ><label
+            >Минуты<select name="minutes">
+              <option>2</option>
+              <option>4</option>
+              <option>5</option>
+              <option>10</option>
+              <option value="custom">Другая длительность</option>
+            </select></label
+          ><label
+            >Своя длительность, секунд<input
+              name="seconds"
+              type="number"
+              min="1"
+              max="3600"
+              value="120"
+          /></label>
+        </div>
+        <label class="row"
+          ><input name="queued" type="checkbox" />Ожидает начала отсчёта</label
+        >
+        <div class="row">
+          <button type="submit" class="primary">Добавить штраф</button
+          ><button type="button" data-close>Отмена</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="history-dialog">
+      <h2>Сохранённые игры</h2>
+      <div id="games" class="stack"></div>
+      <button data-close style="margin-top: 20px">Закрыть</button>
+    </dialog>
+    <dialog id="settings-dialog">
+      <h2>Вывод и NiBUS</h2>
+      <form id="output-form" class="stack">
+        <label
+          >Экран gmib<select id="output-screen" name="screenId"></select></label
+        ><label class="row"
+          ><input name="autoStart" type="checkbox" />Включать вывод при запуске
+          gmib</label
+        >
+        <div class="row">
+          <button class="primary" type="submit">Включить табло</button
+          ><button id="stop-output" type="button">Выключить</button>
+        </div>
+        <p id="output-status" class="status"></p>
+      </form>
+      <form id="nibus-form" class="stack section">
+        <label
+          >Соединение NiBUS<select
+            id="nibus-connection"
+            name="connectionId"
+          ></select></label
+        ><label
+          >Адрес назначения<input
+            name="target"
+            value="FF:FF:FF:FF:FF:FF"
+            maxlength="40" /></label
+        ><label class="row"
+          ><input name="enabled" type="checkbox" />Передавать состояние
+          матча</label
+        ><button class="primary" type="submit">Сохранить NiBUS</button>
+        <p id="nibus-status" class="status"></p>
+      </form>
+      <button data-close style="margin-top: 20px">Закрыть</button>
+    </dialog>
+    <script type="module" src="control.js"></script>
+  </body>
+</html>

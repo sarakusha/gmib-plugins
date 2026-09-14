@@ -1,0 +1,18 @@
+{
+  "id": "./control.html",
+  "name": "Хоккей · Light",
+  "short_name": "Хоккей · Light",
+  "start_url": "./control.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111715",
+  "theme_color": "#111715",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -179,6 +179,11 @@ export const buildPlugin = async pluginId => {
   const manifest = await readManifest(pluginId);
   const pluginDirectory = path.join(pluginsRoot, pluginId);
   const roots = new Set(['manifest.json']);
+  const readme = await fs.promises.lstat(path.join(pluginDirectory, 'README.md')).catch(() => undefined);
+  if (readme) {
+    await assertFile(pluginDirectory, 'README.md', 'README');
+    roots.add('README.md');
+  }
   if (manifest.main) roots.add(manifest.main.split('/')[0]);
   if (manifest.public) roots.add(manifest.public.split('/')[0]);
 

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Хоккей · Табло</title>
+    <link rel="stylesheet" href="screen.css" />
+  </head>
+  <body>
+    <div id="board">
+      <div id="waiting">ХОККЕЙ</div>
+      <div id="scoreboard" hidden>
+        <section class="team home">
+          <div class="name" id="home-name"></div>
+          <div class="score" id="home-score"></div>
+          <div class="penalties" id="home-penalties"></div>
+        </section>
+        <section class="clock">
+          <div id="period"></div>
+          <div id="time"></div>
+          <div id="mode"></div>
+        </section>
+        <section class="team away">
+          <div class="name" id="away-name"></div>
+          <div class="score" id="away-score"></div>
+          <div class="penalties" id="away-penalties"></div>
+        </section>
+      </div>
+      <div id="rosters" hidden>
+        <section>
+          <div class="name" id="home-title"></div>
+          <div id="home-roster"></div>
+        </section>
+        <section>
+          <div class="name" id="away-title"></div>
+          <div id="away-roster"></div>
+        </section>
+      </div>
+      <div id="connection"></div>
+    </div>
+    <script type="module" src="screen.js"></script>
+  </body>
+</html>
