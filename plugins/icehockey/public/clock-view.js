@@ -1,4 +1,5 @@
 const layouts = new Set(["groups", "digits"]);
+export { penaltyTime } from "./sports-time.js";
 
 export function clockLayout(search = "") {
   const selected = new URLSearchParams(search).get("clockLayout");

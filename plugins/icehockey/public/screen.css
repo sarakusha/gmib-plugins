@@ -77,6 +77,36 @@ body {
   font-size: min(3.3cqw, 7cqh);
   color: #a9b5ae;
 }
+#auxiliary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 1cqw;
+}
+.secondary-slot {
+  min-width: 0;
+}
+#secondary small,
+.timeout-count small {
+  display: block;
+  font-size: min(1.5cqw, 3cqh);
+  line-height: 1.1;
+  color: #a9b5ae;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#secondary-time {
+  font-size: min(3.8cqw, 8cqh);
+  line-height: 1.05;
+  color: var(--clock-running);
+}
+.timeout-count strong {
+  display: block;
+  font-size: min(2.6cqw, 5.5cqh);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
 #connection {
   position: absolute;
   bottom: 1cqh;

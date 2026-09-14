@@ -74,6 +74,15 @@
                 +
               </button>
             </div>
+            <div class="timeout-control">
+              <button data-timeout-start="home" data-control>Тайм-аут</button>
+              <button
+                data-timeouts-edit="home"
+                class="ghost timeout-used"
+                data-control
+                aria-label="Исправить использованные тайм-ауты хозяев"
+              >0/1</button>
+            </div>
           </div>
           <div class="clock-panel">
             <div id="period" class="subtitle"></div>
@@ -84,6 +93,13 @@
               ><button id="correct-time" class="ghost" data-control>
                 Время
               </button>
+            </div>
+            <div id="secondary-panel" class="secondary-panel" data-active="false">
+              <div>
+                <div id="secondary-label" class="subtitle">Тайм-аут</div>
+                <div id="secondary-timer" class="secondary-timer">00:30</div>
+              </div>
+              <button id="stop-timeout" class="ghost" data-control>Стоп</button>
             </div>
             <div
               id="integration-status"
@@ -118,13 +134,21 @@
                 +
               </button>
             </div>
+            <div class="timeout-control">
+              <button data-timeout-start="away" data-control>Тайм-аут</button>
+              <button
+                data-timeouts-edit="away"
+                class="ghost timeout-used"
+                data-control
+                aria-label="Исправить использованные тайм-ауты гостей"
+              >0/1</button>
+            </div>
           </div>
         </div>
         <div class="row spread" style="padding-top: 20px">
           <div class="row">
             <button id="next-period" data-control>Период</button
             ><button id="rest" data-control>Перерыв</button
-            ><button id="timeout" data-control>Тайм-аут</button
             ><button id="return" data-control hidden>Вернуться к игре</button>
           </div>
           <div class="row">
@@ -173,15 +197,26 @@
             >Гости<input name="away" value="Гости" required maxlength="100"
           /></label>
         </div>
-        <label
-          >Длительность периода, минут<input
-            name="minutes"
-            type="number"
-            value="20"
-            min="1"
-            max="60"
-            required
-        /></label>
+        <div class="grid">
+          <label
+            >Длительность периода, минут<input
+              name="minutes"
+              type="number"
+              value="20"
+              min="1"
+              max="60"
+              required
+          /></label>
+          <label
+            >Тайм-аутов на команду<input
+              name="timeoutLimit"
+              type="number"
+              value="1"
+              min="0"
+              max="9"
+              required
+          /></label>
+        </div>
         <details id="roster-picker" hidden>
           <summary>Выбрать команды из справочника</summary>
           <div class="grid">

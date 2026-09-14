@@ -53,6 +53,43 @@ const assertDirectory = async (pluginDirectory, relative, field) => {
   }
 };
 
+const validateSportsLibraries = async (pluginDirectory, pluginId) => {
+  const configPath = path.join(pluginDirectory, 'sports-libraries.json');
+  const config = await fs.promises
+    .readFile(configPath, 'utf8')
+    .then(JSON.parse)
+    .catch(error => {
+      if (error.code === 'ENOENT') return undefined;
+      throw error;
+    });
+  if (config === undefined) return;
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new Error(`${pluginId}: sports-libraries.json должен содержать объект`);
+  }
+  for (const [targetValue, sourceValue] of Object.entries(config)) {
+    const target = normalizeRelativePath(targetValue, 'sports library target');
+    const source = normalizeRelativePath(sourceValue, 'sports library source');
+    if (!source.startsWith('packages/')) {
+      throw new Error(`${pluginId}: общая библиотека должна находиться в packages`);
+    }
+    await assertFile(pluginDirectory, target, 'sports library target');
+    const sourcePath = path.join(repositoryRoot, source);
+    const sourceStats = await fs.promises.lstat(sourcePath).catch(() => undefined);
+    if (!sourceStats?.isFile() || sourceStats.isSymbolicLink()) {
+      throw new Error(`${pluginId}: общая библиотека не найдена: ${source}`);
+    }
+    const [expected, actual] = await Promise.all([
+      fs.promises.readFile(sourcePath),
+      fs.promises.readFile(path.join(pluginDirectory, target)),
+    ]);
+    if (!expected.equals(actual)) {
+      throw new Error(
+        `${pluginId}: ${target} устарел; выполните pnpm sync:sports`,
+      );
+    }
+  }
+};
+
 export const discoverPluginIds = async () => {
   const entries = await fs.promises.readdir(pluginsRoot, { withFileTypes: true });
   return entries
@@ -154,6 +191,7 @@ export const readManifest = async pluginId => {
       }
     }
   }
+  await validateSportsLibraries(pluginDirectory, pluginId);
   return raw;
 };
 

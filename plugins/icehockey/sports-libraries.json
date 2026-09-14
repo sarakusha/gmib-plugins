@@ -1,0 +1,5 @@
+{
+  "backend/sports-timeouts.cjs": "packages/sports-core/timeouts.cjs",
+  "public/sports-time.js": "packages/sports-ui/time.js",
+  "public/sports-timeouts.js": "packages/sports-ui/timeouts.js"
+}

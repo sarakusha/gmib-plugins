@@ -262,6 +262,17 @@ th:first-child {
 .score-control button {
   font-size: 24px;
 }
+.timeout-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  max-width: 210px;
+  margin: 10px auto 0;
+}
+.timeout-used {
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+}
 .arena {
   display: grid;
   grid-template-columns: 1fr 1.35fr 1fr;
@@ -281,6 +292,29 @@ th:first-child {
 }
 .timer[data-running="true"] {
   color: var(--clock-running);
+}
+.secondary-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: min(270px, 100%);
+  min-height: 74px;
+  margin: 10px auto 0;
+  visibility: hidden;
+}
+.secondary-panel[data-active="true"] {
+  visibility: visible;
+}
+.secondary-timer {
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.05;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--clock-running);
+}
+.secondary-panel button {
+  min-width: 62px;
 }
 .arena > div {
   min-width: 0;
@@ -420,6 +454,9 @@ summary {
   }
   .clock-action {
     min-width: 130px;
+  }
+  .timeout-control {
+    max-width: 190px;
   }
   .penalties {
     gap: 18px;

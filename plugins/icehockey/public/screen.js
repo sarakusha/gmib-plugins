@@ -1,5 +1,10 @@
 import { $, esc, api, realtime, time } from "./common.js";
-import { renderClock } from "./clock-view.js";
+import { penaltyTime, renderClock } from "./clock-view.js";
+import {
+  projectedClockMs,
+  timeoutCount,
+  timeoutLabel,
+} from "./sports-timeouts.js";
 let data,
   received = 0,
   online = false,
@@ -31,6 +36,7 @@ const accept = (next) => {
     );
     $(`#${side}-name`).textContent = state[side].shortName || state[side].name;
     $(`#${side}-score`).textContent = state[side].score;
+    $(`#${side}-timeouts`).textContent = timeoutCount(state, side);
     $(`#${side}-title`).textContent = state[side].name;
   }
   $("#period").textContent =
@@ -40,9 +46,12 @@ const accept = (next) => {
       ? "МАТЧ ЗАВЕРШЁН"
       : state.clock.mode === "rest"
         ? "ПЕРЕРЫВ"
-        : state.clock.mode === "timeout"
-          ? "ТАЙМ-АУТ"
-          : "";
+        : "";
+  $("#secondary").hidden = !state.secondaryClock;
+  $("#mode").hidden = Boolean(state.secondaryClock);
+  if (state.secondaryClock)
+    $("#secondary-label").textContent =
+      timeoutLabel(state, true);
   $("#time").dataset.running = String(state.clock.running);
   $("#time").setAttribute(
     "aria-label",
@@ -85,6 +94,18 @@ function frame() {
       time(state.clock.remainingMs - elapsed),
       state.clock.running,
     );
+    const secondary = state.secondaryClock;
+    if (secondary) {
+      renderClock(
+        $("#secondary-time"),
+        time(projectedClockMs(secondary, age)),
+        secondary.running,
+      );
+    }
+    const displayDelay =
+      ((state.clock.displayDelayMs ?? 0) +
+        (state.clock.running && state.clock.mode === "game" ? elapsed : 0)) %
+      1000;
     for (const side of ["home", "away"]) {
       const penalties = state.penalties
         .filter((p) => p.side === side && !p.queued)
@@ -99,7 +120,7 @@ function frame() {
         }
         const p = penalties[index];
         const markup = p
-          ? `<span class="penalty-number">${esc(p.number)}</span><span class="penalty-time">${time(p.remainingMs - (state.clock.mode === "game" ? elapsed : 0))}</span>`
+          ? `<span class="penalty-number">${esc(p.number)}</span><span class="penalty-time">${penaltyTime(p.remainingMs - (state.clock.running && state.clock.mode === "game" ? elapsed : 0), displayDelay)}</span>`
           : "";
         if (slot.innerHTML !== markup) slot.innerHTML = markup;
       }
@@ -123,6 +144,7 @@ realtime(
             ...data.state,
             revision: tick.revision,
             clock: tick.clock,
+            secondaryClock: tick.secondaryClock,
             penalties: tick.penalties,
             savedAt: tick.savedAt,
           },

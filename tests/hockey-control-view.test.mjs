@@ -8,7 +8,13 @@ import {
 import {
   clockLayout,
   clockParts,
+  penaltyTime,
 } from "../plugins/icehockey/public/clock-view.js";
+import {
+  projectedClockMs,
+  timeoutCanStart,
+  timeoutCount,
+} from "../packages/sports-ui/timeouts.js";
 
 test("compact clock groups and explicit per-digit fallback are stable", () => {
   assert.deepEqual(clockParts("19:08.3"), {
@@ -21,6 +27,32 @@ test("compact clock groups and explicit per-digit fallback are stable", () => {
   assert.equal(clockLayout("?clockLayout=groups"), "groups");
   assert.equal(clockLayout("?clockLayout=digits"), "digits");
   assert.equal(clockLayout("?clockLayout=unknown"), "groups");
+});
+
+test("penalty time follows the primary clock phase then shows final tenths", () => {
+  assert.equal(penaltyTime(59555, 766), "1:00");
+  assert.equal(penaltyTime(59321, 0), "0:59");
+  assert.equal(penaltyTime(950, 999), "1.0");
+  assert.equal(penaltyTime(900, 0), "0.9");
+  assert.equal(penaltyTime(1, 0), "0.1");
+  assert.equal(penaltyTime(0, 0), "");
+});
+
+test("shared timeout view supports sport-specific limits", () => {
+  const state = {
+    clock: { mode: "game" },
+    secondaryClock: null,
+    timeoutLimit: 3,
+    home: { timeoutsUsed: 2 },
+  };
+  assert.equal(timeoutCount(state, "home"), "2/3");
+  assert.equal(timeoutCanStart(state, "home"), true);
+  state.home.timeoutsUsed = 3;
+  assert.equal(timeoutCanStart(state, "home"), false);
+  assert.equal(
+    projectedClockMs({ remainingMs: 30000, running: true }, 1250),
+    28750,
+  );
 });
 
 test("clock ticks preserve controls; new match/revision and integration changes render", () => {

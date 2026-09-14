@@ -1,5 +1,11 @@
 import { $, esc, api, notify, realtime, time, uid } from "./common.js";
-import { renderClock } from "./clock-view.js";
+import { penaltyTime, renderClock } from "./clock-view.js";
+import {
+  projectedClockMs,
+  timeoutCanStart,
+  timeoutCount,
+  timeoutLabel,
+} from "./sports-timeouts.js";
 import { controlViewKey, setText, setFlag } from "./control-view.js";
 let data,
   renderedViewKey,
@@ -22,11 +28,28 @@ const guard = (work) => async (event) => {
   }
 };
 function updateAccess() {
+  const locked = !online || !token || busy;
   document
     .querySelectorAll("[data-control]")
-    .forEach((button) =>
-      setFlag(button, "disabled", !online || !token || busy),
-    );
+    .forEach((button) => setFlag(button, "disabled", locked));
+  const state = data?.state;
+  if (!locked && state) {
+    const secondaryActive = Boolean(state.secondaryClock);
+    for (const selector of ["#clock", "#correct-time", "#next-period", "#rest"])
+      setFlag($(selector), "disabled", secondaryActive);
+    document.querySelectorAll("[data-timeout-start]").forEach((button) => {
+      const side = button.dataset.timeoutStart;
+      setFlag(
+        button,
+        "disabled",
+        !timeoutCanStart(state, side),
+      );
+    });
+    document
+      .querySelectorAll("[data-timeouts-edit]")
+      .forEach((button) => setFlag(button, "disabled", secondaryActive));
+    setFlag($("#stop-timeout"), "disabled", !state.secondaryClock);
+  }
   setFlag($("#claim"), "hidden", token);
   setFlag($("#claim"), "disabled", !online || data?.controlBusy);
   setFlag($("#release"), "hidden", !token);
@@ -64,12 +87,22 @@ function accept(next) {
     $(`#${side}-name`).textContent = state[side].name;
     $(`#${side}-score`).textContent = state[side].score;
     $(`#penalty-${side}-name`).textContent = state[side].name;
+    setText(
+      document.querySelector(`[data-timeouts-edit="${side}"]`),
+      timeoutCount(state, side),
+    );
   }
   $("#period").textContent =
-    `${state.period > 3 ? "Овертайм · " : ""}Период ${state.period}${state.clock.mode === "rest" ? " / Перерыв" : state.clock.mode === "timeout" ? " / Тайм-аут" : ""}`;
+    `${state.period > 3 ? "Овертайм · " : ""}Период ${state.period}${state.clock.mode === "rest" ? " / Перерыв" : ""}`;
   setText($("#clock"), state.clock.running ? "Пауза" : "Старт");
   $("#timer").dataset.running = String(state.clock.running);
   $("#return").hidden = state.clock.mode === "game";
+  $("#secondary-panel").dataset.active = String(Boolean(state.secondaryClock));
+  if (state.secondaryClock)
+    setText(
+      $("#secondary-label"),
+      timeoutLabel(state),
+    );
   $("#view").textContent =
     state.view === "rosters" ? "Показать счёт" : "Показать составы";
   $("#finish").textContent =
@@ -80,6 +113,8 @@ function accept(next) {
   $("#save-status").textContent =
     state.status === "finished"
       ? "Матч завершён"
+      : state.secondaryClock
+        ? "Идёт тайм-аут"
       : state.clock.running
         ? "Часы идут"
         : state.recovery || "Часы остановлены";
@@ -154,14 +189,31 @@ setInterval(() => {
     time(state.clock.remainingMs - elapsed),
     state.clock.running,
   );
+  const secondary = state.secondaryClock;
+  if (secondary) {
+    renderClock(
+      $("#secondary-timer"),
+      time(projectedClockMs(secondary, age)),
+      secondary.running,
+    );
+  }
+  const displayDelay =
+    ((state.clock.displayDelayMs ?? 0) +
+      (state.clock.running && state.clock.mode === "game" ? elapsed : 0)) %
+    1000;
   for (const penalty of state.penalties) {
     const node = document.querySelector(
       `[data-time="${CSS.escape(penalty.id)}"]`,
     );
     if (node)
-      node.textContent = time(
+      node.textContent = penaltyTime(
         penalty.remainingMs -
-          (!penalty.queued && state.clock.mode === "game" ? elapsed : 0),
+          (!penalty.queued &&
+          state.clock.running &&
+          state.clock.mode === "game"
+            ? elapsed
+            : 0),
+        displayDelay,
       );
   }
 }, 100);
@@ -228,9 +280,7 @@ $("#rest").onclick = guard(() => {
       durationMs: Number(minutes) * 60000,
     });
 });
-$("#timeout").onclick = guard(() =>
-  command({ type: "interval", mode: "timeout", durationMs: 30000 }),
-);
+$("#stop-timeout").onclick = guard(() => command({ type: "timeout.stop" }));
 $("#return").onclick = guard(() => command({ type: "return" }));
 $("#view").onclick = guard(() =>
   command({
@@ -257,6 +307,24 @@ $("main").addEventListener(
     if (score) {
       const [side, delta] = score.split(":");
       return command({ type: "score", side, delta: Number(delta) });
+    }
+    const timeoutSide = event.target.closest("[data-timeout-start]")?.dataset
+      .timeoutStart;
+    if (timeoutSide)
+      return command({
+        type: "timeout.start",
+        side: timeoutSide,
+        durationMs: 30000,
+      });
+    const timeoutsSide = event.target.closest("[data-timeouts-edit]")?.dataset
+      .timeoutsEdit;
+    if (timeoutsSide) {
+      const value = prompt(
+        "Использовано тайм-аутов",
+        String(data.state[timeoutsSide].timeoutsUsed ?? 0),
+      );
+      if (value !== null)
+        return command({ type: "timeouts", side: timeoutsSide, value: Number(value) });
     }
     const remove = event.target.closest("[data-penalty-remove]")?.dataset
       .penaltyRemove;
@@ -328,6 +396,7 @@ $("#new-form").onsubmit = guard(async () => {
     await api("matches", {
       ...b,
       durationMs: Number(b.minutes) * 60000,
+      timeoutLimit: Number(b.timeoutLimit),
       homePlayers: form.getAll("homePlayers"),
       awayPlayers: form.getAll("awayPlayers"),
       commandId: uid(),
@@ -458,6 +527,7 @@ realtime(
             ...data.state,
             revision: tick.revision,
             clock: tick.clock,
+            secondaryClock: tick.secondaryClock,
             penalties: tick.penalties,
             savedAt: tick.savedAt,
           },

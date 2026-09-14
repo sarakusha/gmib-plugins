@@ -117,8 +117,9 @@ exports.activate = async (context) => {
     "SELECT state FROM matches JOIN current_match ON matches.id=current_match.matchId WHERE slot=1",
   );
   if (current) {
-    state = JSON.parse(current.state);
+    state = materialize(JSON.parse(current.state), clock.now());
     state.clock.running = false;
+    state.secondaryClock = null;
     state.clock.anchorMs = clock.now();
     state.recovery = "Проверьте время после перезапуска";
     state.revision += 1;
@@ -311,7 +312,7 @@ exports.activate = async (context) => {
             b[`${side}Players`],
           );
           if (team.sportId !== "icehockey") fail("Выберите хоккейную команду");
-          next[side] = { ...team, score: 0 };
+          next[side] = { ...team, score: 0, timeoutsUsed: 0 };
         }
       if (b.homeTeamId && b.homeTeamId === b.awayTeamId)
         fail("Выберите разные команды");
@@ -342,8 +343,9 @@ exports.activate = async (context) => {
         text(request.body?.id, 100, "матч"),
       ]);
       if (!row) fail("Матч не найден");
-      const next = JSON.parse(row.state);
+      const next = materialize(JSON.parse(row.state), clock.now());
       next.clock.running = false;
+      next.secondaryClock = null;
       next.clock.anchorMs = clock.now();
       next.revision += 1;
       next.recovery = "Проверьте время перед продолжением";
@@ -385,6 +387,7 @@ exports.activate = async (context) => {
         next = last && JSON.parse(last.beforeState);
         if (!next) fail("Нет действия для отмены");
         next.clock.running = false;
+        next.secondaryClock = null;
         next.clock.anchorMs = clock.now();
         next.revision = state.revision + 1;
         next.recovery =
@@ -414,9 +417,14 @@ exports.activate = async (context) => {
       const next = materialize(state, clock.now());
       const boundary =
         next.penalties.length !== state.penalties.length ||
-        next.clock.running !== state.clock.running;
+        next.clock.running !== state.clock.running ||
+        Boolean(next.secondaryClock) !== Boolean(state.secondaryClock);
       if (boundary) next.revision += 1;
-      if (boundary || (state.clock.running && clock.now() - lastSave >= 1000)) {
+      if (
+        boundary ||
+        ((state.clock.running || state.secondaryClock?.running) &&
+          clock.now() - lastSave >= 1000)
+      ) {
         try {
           await persist(next);
           lastSave = clock.now();
@@ -444,6 +452,7 @@ exports.activate = async (context) => {
           matchId: next.id,
           revision: next.revision,
           clock: next.clock,
+          secondaryClock: next.secondaryClock,
           penalties: next.penalties,
           savedAt: next.savedAt,
           nibusStatus,
@@ -463,6 +472,7 @@ exports.activate = async (context) => {
       if (!state) return;
       state = materialize(state, at);
       state.clock.running = false;
+      state.secondaryClock = null;
       state.revision += 1;
       state.recovery = reason;
       await persist(state);

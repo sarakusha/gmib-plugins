@@ -18,7 +18,17 @@
         <section class="clock">
           <div id="period"></div>
           <div id="time"></div>
-          <div id="mode"></div>
+          <div id="auxiliary">
+            <div class="timeout-count"><small>Т-А</small><strong id="home-timeouts">0/1</strong></div>
+            <div class="secondary-slot">
+              <div id="secondary" hidden>
+                <small id="secondary-label">ТАЙМ-АУТ</small>
+                <div id="secondary-time"></div>
+              </div>
+              <div id="mode"></div>
+            </div>
+            <div class="timeout-count"><small>Т-А</small><strong id="away-timeouts">0/1</strong></div>
+          </div>
         </section>
         <section class="team away">
           <div class="name" id="away-name"></div>

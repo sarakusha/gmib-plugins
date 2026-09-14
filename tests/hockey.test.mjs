@@ -11,6 +11,9 @@ const {
   materialize,
   applyCommand,
 } = require("../plugins/icehockey/backend/engine.cjs");
+const {
+  normalizeTimeoutState,
+} = require("../packages/sports-core/timeouts.cjs");
 const { activate } = require("../plugins/icehockey/backend/main.cjs");
 test("monotonic timer and penalties survive delayed ticks, pauses, rest and period changes", () => {
   let state = createMatch(
@@ -46,6 +49,64 @@ test("monotonic timer and penalties survive delayed ticks, pauses, rest and peri
   assert.equal(materialize(state, 219999).penalties.length, 1);
   assert.equal(materialize(state, 220000).penalties.length, 0);
   assert.equal(materialize(state, 99999999).clock.running, false);
+});
+
+test("timeout runs as a secondary clock while the primary clock remains visible", () => {
+  let state = createMatch(
+    { home: "Дом", away: "Гости", durationMs: 200000 },
+    0,
+  );
+  state = applyCommand(state, { type: "start" }, 0);
+  state = applyCommand(
+    state,
+    { type: "timeout.start", side: "home", durationMs: 30000 },
+    60555,
+  );
+  assert.equal(state.clock.running, false);
+  assert.equal(state.clock.remainingMs, 139445);
+  assert.equal(state.clock.displayDelayMs, 555);
+  assert.equal(state.secondaryClock.running, true);
+  assert.equal(state.secondaryClock.remainingMs, 30000);
+  assert.equal(state.home.timeoutsUsed, 1);
+  assert.throws(
+    () => applyCommand(state, { type: "start" }, 60555),
+    /остановите тайм-аут/i,
+  );
+  state = materialize(state, 70555);
+  assert.equal(state.clock.remainingMs, 139445);
+  assert.equal(state.secondaryClock.remainingMs, 20000);
+  state = applyCommand(state, { type: "timeout.stop" }, 70555);
+  assert.equal(state.secondaryClock, null);
+  state = applyCommand(
+    state,
+    { type: "timeouts", side: "home", value: 0 },
+    70555,
+  );
+  assert.equal(state.home.timeoutsUsed, 0);
+  state = applyCommand(
+    state,
+    { type: "timeout.start", side: "home", durationMs: 30000 },
+    70555,
+  );
+  assert.equal(materialize(state, 100555).secondaryClock, null);
+});
+
+test("shared timeout state accepts limits larger than one", () => {
+  const state = {
+    home: {},
+    away: {},
+    timeoutLimit: 3,
+  };
+  normalizeTimeoutState(state);
+  assert.equal(state.timeoutLimit, 3);
+  assert.equal(state.home.timeoutsUsed, 0);
+  assert.equal(state.away.timeoutsUsed, 0);
+  assert.equal(state.secondaryClock, null);
+  const match = createMatch(
+    { home: "Дом", away: "Гости", timeoutLimit: 3 },
+    0,
+  );
+  assert.equal(match.timeoutLimit, 3);
 });
 test("standalone match enforces control, revisions, idempotency and restores paused", async () => {
   const dir = await mkdtemp(join(tmpdir(), "hockey-test-"));
