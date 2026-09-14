@@ -1,4 +1,4 @@
-const CACHE = "sports-roster-1.0.2";
+const CACHE = "sports-roster-1.0.3";
 const shell = [
   "control.html",
   "app.css",

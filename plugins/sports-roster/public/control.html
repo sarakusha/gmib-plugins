@@ -114,13 +114,17 @@
             <label for="member-last-name">Фамилия</label>
             <input
               id="member-last-name"
-              name="lastName"
+              name="roster-family-query"
               required
               maxlength="100"
-              autocomplete="off"
+              autocomplete="new-password"
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
+              data-form-type="other"
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore
               role="combobox"
               aria-autocomplete="list"
               aria-expanded="false"
@@ -142,12 +146,24 @@
           </div>
           <label
             >Имя<input
-              name="firstName"
+              name="roster-given-query"
               maxlength="80"
-              autocomplete="off"
+              autocomplete="new-password"
               autocorrect="off"
-              spellcheck="false" /></label
-          ><label>Номер<input name="number" maxlength="5" /></label
+              spellcheck="false"
+              data-form-type="other"
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore /></label
+          ><label
+            >Номер<input
+              name="number"
+              maxlength="5"
+              autocomplete="new-password"
+              data-form-type="other"
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore /></label
           ><label>Позиция<select name="position" id="position"></select></label>
         </div>
         <div class="row">

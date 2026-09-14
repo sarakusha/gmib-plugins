@@ -10,6 +10,13 @@ let sports = [],
   suggestedPeople = [],
   activeSuggestion = -1;
 const field = (form, name) => form.elements.namedItem(name);
+const participantField = (form, name) =>
+  field(
+    form,
+    { lastName: "roster-family-query", firstName: "roster-given-query" }[
+      name
+    ] ?? name,
+  );
 const protect = (work) => async (event) => {
   if (event?.type === "submit") event.preventDefault();
   try {
@@ -97,7 +104,7 @@ async function editMember(member) {
     "number",
     "position",
   ])
-    field(form, name).value = member?.[name] ?? "";
+    participantField(form, name).value = member?.[name] ?? "";
   field(form, "captain").checked = Boolean(member?.captain);
   field(form, "active").checked = member ? Boolean(member.active) : true;
   editingMember = Boolean(member);
@@ -133,7 +140,8 @@ function closeSuggestions() {
 }
 function renderPeople() {
   const form = $("#member-form");
-  const query = `${surname.value} ${field(form, "firstName").value}`.trim();
+  const query =
+    `${surname.value} ${participantField(form, "firstName").value}`.trim();
   if (editingMember || !surname.value.trim()) return closeSuggestions();
   const { items, total } = searchPeople(people, query, 20);
   suggestedPeople = items;
@@ -162,16 +170,16 @@ function choosePerson(index) {
   field(form, "participantId").value = person?.id ?? "";
   if (person) {
     for (const name of ["firstName", "lastName"])
-      field(form, name).value = person[name];
+      participantField(form, name).value = person[name];
   }
   $("#participant-selection").textContent = person
     ? `Из справочника: ${person.lastName} ${person.firstName}`
     : "Новый участник";
   closeSuggestions();
-  field(form, person ? "number" : "firstName").focus();
+  participantField(form, person ? "number" : "firstName").focus();
 }
 for (const name of ["lastName", "firstName"]) {
-  field($("#member-form"), name).oninput = () => {
+  participantField($("#member-form"), name).oninput = () => {
     // Changing an offered name creates a new person; editing a team member keeps its identity.
     if (!editingMember) {
       field($("#member-form"), "participantId").value = "";
@@ -217,7 +225,7 @@ surname.onkeydown = (event) => {
       choosePerson(activeSuggestion);
     else {
       closeSuggestions();
-      field($("#member-form"), "firstName").focus();
+      participantField($("#member-form"), "firstName").focus();
     }
   } else if (event.key === "Tab") closeSuggestions();
 };
@@ -244,7 +252,11 @@ $("#member-form").onsubmit = protect(async () => {
   await api(
     "members",
     {
-      ...Object.fromEntries(new FormData(form)),
+      participantId: field(form, "participantId").value,
+      lastName: participantField(form, "lastName").value,
+      firstName: participantField(form, "firstName").value,
+      number: field(form, "number").value,
+      position: field(form, "position").value,
       teamId: selected.id,
       captain: field(form, "captain").checked,
       active: field(form, "active").checked,
