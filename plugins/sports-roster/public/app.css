@@ -71,6 +71,31 @@ select {
   width: 100%;
   max-width: 100%;
 }
+.text-entry {
+  border: 1px solid #3b4941;
+  background: #19221d;
+  border-radius: 5px;
+  padding: 11px;
+  min-height: 44px;
+  color: inherit;
+  width: 100%;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.text-entry:focus {
+  outline: 2px solid -webkit-focus-ring-color;
+  outline-offset: -1px;
+}
+.text-entry:empty::before {
+  content: attr(data-placeholder);
+  color: #7e8c85;
+  pointer-events: none;
+}
+.field-label {
+  display: grid;
+  gap: 7px;
+}
 input[type="checkbox"] {
   width: 20px;
   min-height: 20px;

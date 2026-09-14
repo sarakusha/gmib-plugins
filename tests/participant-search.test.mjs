@@ -40,23 +40,20 @@ test("Russian directory ordering and search across a large result set", () => {
   assert.equal(people[0].id, "p0");
 });
 
-test("member name fields suppress browser profile and form-history suggestions", async () => {
+test("member name editors cannot trigger Safari form autofill", async () => {
   const html = await readFile(
     new URL("../plugins/sports-roster/public/control.html", import.meta.url),
     "utf8",
   );
   const memberForm = html.match(/<form id="member-form"[\s\S]*?<\/form>/)?.[0];
   assert.ok(memberForm);
-  assert.match(memberForm, /autocomplete="off"/);
   assert.doesNotMatch(memberForm, /name="(?:firstName|lastName)"/);
-  for (const name of ["roster-family-query", "roster-given-query"]) {
-    const input = memberForm.match(
-      new RegExp(`<input(?=[^>]*name="${name}")[^>]*>`),
+  assert.doesNotMatch(memberForm, /autocomplete="new-password"/);
+  for (const id of ["member-last-name", "member-first-name"]) {
+    const editor = memberForm.match(
+      new RegExp(`<div(?=[^>]*id="${id}")[^>]*>`),
     )?.[0];
-    assert.ok(input);
-    assert.match(input, /autocomplete="new-password"/);
-    assert.match(input, /data-1p-ignore/);
-    assert.match(input, /data-lpignore="true"/);
-    assert.match(input, /data-bwignore/);
+    assert.ok(editor);
+    assert.match(editor, /contenteditable="plaintext-only"/);
   }
 });

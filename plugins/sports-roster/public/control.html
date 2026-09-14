@@ -112,25 +112,22 @@
         <div class="grid">
           <div class="participant-combobox">
             <label for="member-last-name">Фамилия</label>
-            <input
+            <div
               id="member-last-name"
-              name="roster-family-query"
-              required
-              maxlength="100"
-              autocomplete="new-password"
+              class="text-entry"
+              contenteditable="plaintext-only"
+              data-maxlength="100"
+              data-placeholder="Фамилия"
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
-              data-form-type="other"
-              data-1p-ignore
-              data-lpignore="true"
-              data-bwignore
               role="combobox"
+              aria-required="true"
               aria-autocomplete="list"
               aria-expanded="false"
               aria-controls="participant-options"
               aria-describedby="participant-selection"
-            />
+            ></div>
             <div id="participant-popup" hidden>
               <div
                 id="participant-options"
@@ -144,22 +141,24 @@
               ></div>
             </div>
           </div>
-          <label
-            >Имя<input
-              name="roster-given-query"
-              maxlength="80"
-              autocomplete="new-password"
+          <div class="field-label">
+            <label for="member-first-name">Имя</label>
+            <div
+              id="member-first-name"
+              class="text-entry"
+              contenteditable="plaintext-only"
+              data-maxlength="80"
+              data-placeholder="Имя"
               autocorrect="off"
               spellcheck="false"
-              data-form-type="other"
-              data-1p-ignore
-              data-lpignore="true"
-              data-bwignore /></label
-          ><label
+              role="textbox"
+            ></div>
+          </div>
+          <label
             >Номер<input
               name="number"
               maxlength="5"
-              autocomplete="new-password"
+              autocomplete="off"
               data-form-type="other"
               data-1p-ignore
               data-lpignore="true"

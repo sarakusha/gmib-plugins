@@ -11,12 +11,14 @@ let sports = [],
   activeSuggestion = -1;
 const field = (form, name) => form.elements.namedItem(name);
 const participantField = (form, name) =>
-  field(
-    form,
-    { lastName: "roster-family-query", firstName: "roster-given-query" }[
-      name
-    ] ?? name,
-  );
+  ({ lastName: $("#member-last-name"), firstName: $("#member-first-name") })[
+    name
+  ] ?? field(form, name);
+const participantValue = (form, name) =>
+  participantField(form, name).textContent.trim();
+const setParticipantValue = (form, name, value) => {
+  participantField(form, name).textContent = value ?? "";
+};
 const protect = (work) => async (event) => {
   if (event?.type === "submit") event.preventDefault();
   try {
@@ -97,14 +99,10 @@ async function editMember(member) {
           `<option value="${esc(position.id)}">${esc(position.name)}</option>`,
       )
       .join("");
-  for (const name of [
-    "participantId",
-    "lastName",
-    "firstName",
-    "number",
-    "position",
-  ])
-    participantField(form, name).value = member?.[name] ?? "";
+  for (const name of ["participantId", "number", "position"])
+    field(form, name).value = member?.[name] ?? "";
+  for (const name of ["lastName", "firstName"])
+    setParticipantValue(form, name, member?.[name]);
   field(form, "captain").checked = Boolean(member?.captain);
   field(form, "active").checked = member ? Boolean(member.active) : true;
   editingMember = Boolean(member);
@@ -141,8 +139,9 @@ function closeSuggestions() {
 function renderPeople() {
   const form = $("#member-form");
   const query =
-    `${surname.value} ${participantField(form, "firstName").value}`.trim();
-  if (editingMember || !surname.value.trim()) return closeSuggestions();
+    `${participantValue(form, "lastName")} ${participantValue(form, "firstName")}`.trim();
+  if (editingMember || !participantValue(form, "lastName"))
+    return closeSuggestions();
   const { items, total } = searchPeople(people, query, 20);
   suggestedPeople = items;
   activeSuggestion = -1;
@@ -170,7 +169,7 @@ function choosePerson(index) {
   field(form, "participantId").value = person?.id ?? "";
   if (person) {
     for (const name of ["firstName", "lastName"])
-      participantField(form, name).value = person[name];
+      setParticipantValue(form, name, person[name]);
   }
   $("#participant-selection").textContent = person
     ? `Из справочника: ${person.lastName} ${person.firstName}`
@@ -179,7 +178,15 @@ function choosePerson(index) {
   participantField(form, person ? "number" : "firstName").focus();
 }
 for (const name of ["lastName", "firstName"]) {
-  participantField($("#member-form"), name).oninput = () => {
+  const input = participantField($("#member-form"), name);
+  input.oninput = () => {
+    const limit = Number(input.dataset.maxlength);
+    if (input.textContent.length > limit) {
+      input.textContent = input.textContent.slice(0, limit);
+      const selection = getSelection();
+      selection.selectAllChildren(input);
+      selection.collapseToEnd();
+    }
     // Changing an offered name creates a new person; editing a team member keeps its identity.
     if (!editingMember) {
       field($("#member-form"), "participantId").value = "";
@@ -249,12 +256,16 @@ $("#team-form").onsubmit = protect(async () => {
 });
 $("#member-form").onsubmit = protect(async () => {
   const form = $("#member-form");
+  if (!participantValue(form, "lastName")) {
+    participantField(form, "lastName").focus();
+    throw new Error("Введите фамилию");
+  }
   await api(
     "members",
     {
       participantId: field(form, "participantId").value,
-      lastName: participantField(form, "lastName").value,
-      firstName: participantField(form, "firstName").value,
+      lastName: participantValue(form, "lastName"),
+      firstName: participantValue(form, "firstName"),
       number: field(form, "number").value,
       position: field(form, "position").value,
       teamId: selected.id,
