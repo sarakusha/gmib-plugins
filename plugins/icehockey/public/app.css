@@ -38,15 +38,13 @@ button {
   border-radius: 7px;
   padding: 11px 16px;
   min-height: 44px;
-  transition:
-    background 0.12s,
-    transform 0.12s;
+  transition: background 0.12s;
 }
 button:hover {
   background: #35473d;
 }
 button:active {
-  transform: translateY(1px);
+  background: #405348;
 }
 button:disabled {
   opacity: 0.4;

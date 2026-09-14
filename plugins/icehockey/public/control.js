@@ -1,6 +1,8 @@
 import { $, esc, api, notify, realtime, time, uid } from "./common.js";
 import { renderClock } from "./clock-view.js";
+import { controlViewKey, setText, setFlag } from "./control-view.js";
 let data,
+  renderedViewKey,
   received = performance.now(),
   online = false,
   token = sessionStorage.getItem("hockey-control"),
@@ -22,15 +24,20 @@ const guard = (work) => async (event) => {
 function updateAccess() {
   document
     .querySelectorAll("[data-control]")
-    .forEach((button) => (button.disabled = !online || !token || busy));
-  $("#claim").hidden = Boolean(token);
-  $("#claim").disabled = !online || data?.controlBusy;
-  $("#release").hidden = !token;
-  $("#control-status").textContent = token
-    ? "Вы управляете"
-    : data?.controlBusy
-      ? "Пульт занят · просмотр"
-      : "Режим просмотра";
+    .forEach((button) =>
+      setFlag(button, "disabled", !online || !token || busy),
+    );
+  setFlag($("#claim"), "hidden", token);
+  setFlag($("#claim"), "disabled", !online || data?.controlBusy);
+  setFlag($("#release"), "hidden", !token);
+  setText(
+    $("#control-status"),
+    token
+      ? "Вы управляете"
+      : data?.controlBusy
+        ? "Пульт занят · просмотр"
+        : "Режим просмотра",
+  );
 }
 function accept(next) {
   if (
@@ -42,7 +49,11 @@ function accept(next) {
   data = next;
   received = performance.now();
   online = true;
-  $("#connection").textContent = "Локальное подключение · gmib";
+  setText($("#connection"), "Локальное подключение · gmib");
+  updateAccess();
+  const key = controlViewKey(next);
+  if (renderedViewKey === key) return;
+  renderedViewKey = key;
   $("#roster-link").hidden = !next.rosterAvailable;
   $("#empty").hidden = Boolean(next.state);
   $("#match").hidden = !next.state;
@@ -56,7 +67,7 @@ function accept(next) {
   }
   $("#period").textContent =
     `${state.period > 3 ? "Овертайм · " : ""}Период ${state.period}${state.clock.mode === "rest" ? " / Перерыв" : state.clock.mode === "timeout" ? " / Тайм-аут" : ""}`;
-  $("#clock").textContent = state.clock.running ? "Пауза" : "Старт";
+  setText($("#clock"), state.clock.running ? "Пауза" : "Старт");
   $("#timer").dataset.running = String(state.clock.running);
   $("#return").hidden = state.clock.mode === "game";
   $("#view").textContent =
