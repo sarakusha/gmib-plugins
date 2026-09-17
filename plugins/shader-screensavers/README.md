@@ -11,6 +11,10 @@ GET   /api/plugins/shader-screensavers/settings
 PATCH /api/plugins/shader-screensavers/settings
 ```
 
+Полная plugin-owned OpenAPI 3.1 схема доступна по необязательному авторизованному маршруту
+`GET /api/plugins/shader-screensavers/openapi.json`. Она описывает только API этого плагина и не
+является универсальным контрактом для остальных плагинов.
+
 `GET` возвращает только настройки:
 
 ```json

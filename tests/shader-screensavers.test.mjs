@@ -69,6 +69,15 @@ test('shader settings expose authenticated strict partial configuration and pres
       ],
     );
     assert.equal(
+      registrations.find(route => route.path === '/openapi.json' && route.method === 'GET').options
+        ?.access,
+      'authenticated',
+    );
+    const pluginSchema = bodyOf(await host.request('GET', '/openapi.json'));
+    assert.equal(pluginSchema.openapi, '3.1.1');
+    assert.deepEqual(Object.keys(pluginSchema.paths).sort(), ['/openapi.json', '/settings']);
+    assert.ok(pluginSchema.paths['/settings'].patch);
+    assert.equal(
       registrations.find(route => route.path === '/state' && route.method === 'GET').options,
       undefined,
     );

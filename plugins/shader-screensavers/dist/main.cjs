@@ -1,5 +1,7 @@
 'use strict';
 
+const openapi = require('../public/openapi.json');
+
 const defaults = Object.freeze({
   scene: 'truchet',
   speed: 45,
@@ -166,4 +168,5 @@ exports.activate = async ({ events, http, storage }) => {
     },
     { access: 'authenticated' },
   );
+  http.get('/openapi.json', async () => openapi, { access: 'authenticated' });
 };

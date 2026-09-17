@@ -1,0 +1,124 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Shader Screensavers plugin API",
+    "version": "1.0.0",
+    "description": "Optional plugin-owned contract. The host exposes these routes under /api/plugins/shader-screensavers and applies its authenticated access policy. This schema is independent from the host API release."
+  },
+  "servers": [{ "url": "/api/plugins/shader-screensavers" }],
+  "security": [{ "GmibAuthenticated": [] }],
+  "paths": {
+    "/settings": {
+      "get": {
+        "operationId": "getShaderScreensaverSettings",
+        "summary": "Read shader settings",
+        "responses": {
+          "200": {
+            "description": "Allowlisted effective settings",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Settings" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "operationId": "patchShaderScreensaverSettings",
+        "summary": "Partially update shader settings",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SettingsPatch" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Canonical readback",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SettingsPatchResult" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getShaderScreensaverOpenApi",
+        "summary": "Read this plugin-owned schema",
+        "responses": {
+          "200": {
+            "description": "This OpenAPI document",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "GmibAuthenticated": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Host-managed authenticated access. GMIB may accept its local bearer credential or remote HMAC authentication."
+      }
+    },
+    "schemas": {
+      "Settings": {
+        "type": "object",
+        "required": ["scene", "speed", "scale", "brightness", "patternOpacity", "backgroundOpacity", "colorA", "colorB", "background", "animate"],
+        "additionalProperties": false,
+        "properties": {
+          "scene": { "type": "string", "enum": ["truchet", "aurora", "plasma", "topography"] },
+          "speed": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "scale": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "brightness": { "type": "integer", "minimum": 5, "maximum": 100 },
+          "patternOpacity": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "backgroundOpacity": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "colorA": { "$ref": "#/components/schemas/HexColor" },
+          "colorB": { "$ref": "#/components/schemas/HexColor" },
+          "background": { "$ref": "#/components/schemas/HexColor" },
+          "animate": { "type": "boolean" }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scene": { "type": "string", "enum": ["truchet", "aurora", "plasma", "topography"] },
+          "speed": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "scale": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "brightness": { "type": "integer", "minimum": 5, "maximum": 100 },
+          "patternOpacity": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "backgroundOpacity": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "colorA": { "$ref": "#/components/schemas/HexColor" },
+          "colorB": { "$ref": "#/components/schemas/HexColor" },
+          "background": { "$ref": "#/components/schemas/HexColor" },
+          "animate": { "type": "boolean" }
+        }
+      },
+      "SettingsPatchResult": {
+        "type": "object",
+        "required": ["changed", "settings"],
+        "additionalProperties": false,
+        "properties": {
+          "changed": { "type": "boolean" },
+          "settings": { "$ref": "#/components/schemas/Settings" }
+        }
+      },
+      "HexColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Unknown or invalid setting",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["error", "field"],
+              "properties": { "error": { "type": "string" }, "field": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "Unauthorized": { "description": "Host authentication failed." }
+    }
+  }
+}

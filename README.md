@@ -57,6 +57,9 @@ GitHub Actions проверит соответствие тега манифес
 
 Подробная спецификация Plugin API и требования к содержимому находятся в [AGENTS.md](AGENTS.md),
 полные переносимые типы — в [gmib-plugin-api.d.ts](gmib-plugin-api.d.ts).
+Необязательная convention для plugin-owned HTTP schemas описана в
+[docs/plugin-http-api.md](docs/plugin-http-api.md); она не вводит общий формат `/settings` и не
+требует выпуска gmib при добавлении маршрута, если хватает существующего Plugin API.
 
 ## Plugin API 1.1
 
