@@ -7,6 +7,11 @@ serves that document through the existing generic plugin dispatch under
 
 This is a convention, not a required manifest field or SDK. Plugins may choose different paths,
 request formats, response shapes, and schemas; `/settings` is not a universal configuration route.
+The `info.version` in the returned document versions the plugin HTTP contract independently from
+`manifest.gmibApi`, which declares compatibility with the Plugin API SDK. For a breaking HTTP change,
+the plugin can publish a plugin-specific versioned path such as `/v2/settings` and keep the old path
+while clients migrate. A Plugin API SDK upgrade may still require a compatible GMIB host release;
+the convention only avoids coupling an otherwise compatible plugin HTTP change to every host release.
 New plugin APIs do not require a GMIB host release when the existing Plugin API permissions and
 generic HTTP route mechanism are sufficient. Unknown plugins or plugins without this optional route
 return the host's normal not-found response.

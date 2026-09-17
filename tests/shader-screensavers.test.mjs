@@ -75,6 +75,16 @@ test('shader settings expose authenticated strict partial configuration and pres
     );
     const pluginSchema = bodyOf(await host.request('GET', '/openapi.json'));
     assert.equal(pluginSchema.openapi, '3.1.1');
+    assert.deepEqual(pluginSchema.security, [
+      { LocalBearer: [] },
+      { HmacIdentifier: [], HmacTimestamp: [], HmacSignature: [] },
+    ]);
+    assert.deepEqual(Object.keys(pluginSchema.components.securitySchemes).sort(), [
+      'HmacIdentifier',
+      'HmacSignature',
+      'HmacTimestamp',
+      'LocalBearer',
+    ]);
     assert.deepEqual(Object.keys(pluginSchema.paths).sort(), ['/openapi.json', '/settings']);
     assert.ok(pluginSchema.paths['/settings'].patch);
     assert.equal(

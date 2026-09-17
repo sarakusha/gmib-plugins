@@ -3,10 +3,13 @@
   "info": {
     "title": "Shader Screensavers plugin API",
     "version": "1.0.0",
-    "description": "Optional plugin-owned contract. The host exposes these routes under /api/plugins/shader-screensavers and applies its authenticated access policy. This schema is independent from the host API release."
+    "description": "Optional plugin-owned HTTP contract. This info.version versions the plugin HTTP API independently from manifest.gmibApi, which declares Plugin API SDK compatibility. The host exposes these routes under /api/plugins/shader-screensavers and applies its authenticated access policy."
   },
   "servers": [{ "url": "/api/plugins/shader-screensavers" }],
-  "security": [{ "GmibAuthenticated": [] }],
+  "security": [
+    { "LocalBearer": [] },
+    { "HmacIdentifier": [], "HmacTimestamp": [], "HmacSignature": [] }
+  ],
   "paths": {
     "/settings": {
       "get": {
@@ -53,11 +56,23 @@
   },
   "components": {
     "securitySchemes": {
-      "GmibAuthenticated": {
+      "LocalBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Host-local bearer credential. See the GMIB management API authentication contract."
+      },
+      "HmacIdentifier": { "type": "apiKey", "in": "header", "name": "x-ni-identifier" },
+      "HmacTimestamp": {
         "type": "apiKey",
         "in": "header",
-        "name": "Authorization",
-        "description": "Host-managed authenticated access. GMIB may accept its local bearer credential or remote HMAC authentication."
+        "name": "x-ni-timestamp",
+        "description": "Unix milliseconds."
+      },
+      "HmacSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-ni-signature",
+        "description": "HMAC-SHA256 of METHOD + PATH_AND_QUERY + TIMESTAMP + BODY using the SRP session key. See the GMIB management API authentication contract."
       }
     },
     "schemas": {
