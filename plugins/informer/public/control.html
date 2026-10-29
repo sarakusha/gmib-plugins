@@ -254,23 +254,8 @@
                 <option value="dusk">Сумерки</option>
                 <option value="night">Ночь</option>
               </select></label
-            ><label
-              >Тень текста <output id="shadow-value"></output
-              ><input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                data-path="appearance.shadow" /></label
-            ><label
-              >Затемнение подложки <output id="dim-value"></output
-              ><input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                data-path="appearance.dim" /></label
-            ><label
+            >
+            <label
               >Обводка, px<input
                 type="number"
                 min="0"
@@ -278,6 +263,26 @@
                 step="0.5"
                 data-path="appearance.outline"
             /></label>
+            <div class="appearance-sliders">
+              <label
+                >Тень текста <output id="shadow-value"></output
+                ><input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  data-path="appearance.shadow"
+              /></label>
+              <label
+                >Затемнение подложки <output id="dim-value"></output
+                ><input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  data-path="appearance.dim"
+              /></label>
+            </div>
           </div>
           <div class="checks">
             <label
@@ -441,6 +446,22 @@
         <label id="preview-screen-field" class="preview-screen-field" hidden>
           Экран для предпросмотра
           <select id="preview-screen-select"></select>
+        </label>
+        <label class="preview-screen-field">
+          Погода для предпросмотра
+          <select id="preview-weather-select">
+            <option value="">Автоматически</option>
+            <option value="clear">Ясно</option>
+            <option value="partly-cloudy">Малооблачно</option>
+            <option value="cloudy">Облачно</option>
+            <option value="overcast">Пасмурно</option>
+            <option value="light-rain">Небольшой дождь</option>
+            <option value="rain">Дождь</option>
+            <option value="heavy-rain">Сильный дождь</option>
+            <option value="snow">Снег</option>
+            <option value="wet-snow">Мокрый снег</option>
+            <option value="thunderstorm-with-rain">Гроза</option>
+          </select>
         </label>
         <p id="preview-screen-status" class="hint" role="status">
           Загрузка экранов…

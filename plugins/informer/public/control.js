@@ -186,9 +186,14 @@
       show(e.message, true);
       return;
     }
+    const previewSnapshot = structuredClone(snapshot);
+    const condition = $("preview-weather-select").value;
+    if (condition && previewSnapshot) {
+      previewSnapshot.weather = { ...previewSnapshot.weather, condition };
+    }
     const frame = $("preview-frame");
     frame.contentWindow?.postMessage(
-      { type: "informer:preview", settings: draft, snapshot },
+      { type: "informer:preview", settings: draft, snapshot: previewSnapshot },
       location.origin,
     );
   }
@@ -550,6 +555,7 @@
     resizePreview();
     preview();
   });
+  $("preview-weather-select").addEventListener("change", preview);
   $("preview-frame").addEventListener("load", preview);
   const previewObserver = new ResizeObserver(resizePreview);
   previewObserver.observe(document.querySelector(".preview"));

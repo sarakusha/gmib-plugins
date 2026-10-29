@@ -411,7 +411,7 @@
     if (kind === "empty")
       html = '<div class="empty-weather">Погода недоступна</div>';
     if (kind === "current")
-      html = `<div class="weather-caption">Сейчас</div><div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
+      html = `<div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
     if (kind === "details")
       html = `<div class="weather-caption">Погодные условия</div>${metrics(weather)}`;
     if (kind === "forecast")
