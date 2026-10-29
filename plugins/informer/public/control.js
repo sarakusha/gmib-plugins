@@ -29,6 +29,7 @@
   let snapshot = null,
     draft = structuredClone(defaults),
     output = null,
+    settingsSupported = true,
     ready = false,
     previewScreenId = null,
     outputLoading = false,
@@ -103,6 +104,7 @@
   function bind() {
     // Older settings used dateStyle; expose its fields in the same selectors.
     expandDateStyle();
+    delete draft.date.options.era;
     document.querySelectorAll("[data-path]").forEach((input) => {
       const value = getPath(input.dataset.path);
       if (input.type === "checkbox") input.checked = Boolean(value);
@@ -148,14 +150,7 @@
       Array.isArray(draft.date.options)
     )
       throw Error("Параметры даты должны быть объектом.");
-    const allowed = new Set([
-      "dateStyle",
-      "weekday",
-      "era",
-      "year",
-      "month",
-      "day",
-    ]);
+    const allowed = new Set(["dateStyle", "weekday", "year", "month", "day"]);
     if (Object.keys(draft.date.options).some((k) => !allowed.has(k)))
       throw Error("Параметры даты содержат неподдерживаемое поле.");
     try {
@@ -250,11 +245,12 @@
     );
     const valid = validDimensions(screen);
     holder.hidden = !valid;
-    $("preview-screen-status").textContent = screen
-      ? valid
-        ? screenLabel(screen)
-        : "У выбранного экрана не заданы размеры. Настройте экран в GMIB."
-      : "Нет доступных экранов. Добавьте экран в GMIB для предпросмотра.";
+    $("preview-screen-status").hidden = valid;
+    $("preview-screen-status").textContent = valid
+      ? ""
+      : screen
+        ? "У выбранного экрана не заданы размеры. Настройте экран в GMIB."
+        : "Нет доступных экранов. Добавьте экран в GMIB для предпросмотра.";
     if (!valid) return;
     // Keep the iframe viewport equal to the actual output; scale only its presentation.
     const scale = Math.min(
@@ -294,8 +290,14 @@
   function updateSnapshot(data, keepDraft = false) {
     if (!data || typeof data !== "object" || !data.settings) return;
     snapshot = data;
+    settingsSupported =
+      ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
+      typeof data.settings.appearance?.showSource === "boolean";
+    $("runtime-notice").hidden = settingsSupported;
+    $("save").disabled = !settingsSupported;
     if (!keepDraft) {
       draft = structuredClone(data.settings);
+      draft.appearance = { ...defaults.appearance, ...draft.appearance };
       bind();
     }
     updateCache();
@@ -343,9 +345,11 @@
     } catch (e) {
       $("output-status").textContent =
         `Состояние вывода недоступно: ${e.message}`;
-      if (!output)
+      if (!output) {
+        $("preview-screen-status").hidden = false;
         $("preview-screen-status").textContent =
           `Экраны недоступны: ${e.message}`;
+      }
     } finally {
       outputLoading = false;
     }
@@ -354,6 +358,18 @@
     try {
       show("Выполняется…");
       const data = await api(path, method, body);
+      if (
+        path === "settings" &&
+        (data?.settings?.appearance?.backdrop !== body.appearance.backdrop ||
+          data?.settings?.appearance?.showSource !== body.appearance.showSource)
+      ) {
+        $("runtime-notice").hidden = false;
+        settingsSupported = false;
+        $("save").disabled = true;
+        throw Error(
+          "Backend не сохранил новые параметры. Перезапустите GMIB и обновите страницу.",
+        );
+      }
       if (data?.settings) updateSnapshot(data, path !== "settings");
       else await loadOutput();
       show(done);
@@ -367,6 +383,10 @@
     .forEach((input) => input.addEventListener("input", preview));
   $("save").addEventListener("click", async () => {
     try {
+      if (!settingsSupported)
+        throw Error(
+          "Перезапустите GMIB, чтобы сохранять новые настройки Informer.",
+        );
       readDraft();
       await action("settings", "PUT", draft, "Настройки сохранены.");
     } catch (e) {

@@ -2,6 +2,7 @@
   "use strict";
   function formatDate(now, date, clock) {
     const options = { ...date.options };
+    delete options.era;
     const weekdayStyle = date.weekday ? options.weekday || "long" : undefined;
     delete options.weekday;
     const zone = { timeZone: clock.timeZone };

@@ -35,6 +35,9 @@ function validateSettings(value) {
   if (![1, 2].includes(date.lines) || typeof date.weekday !== 'boolean' || !object(date.options)) fail('Некорректные настройки даты');
   if (Object.keys(date.options).some(key => !dateOptions.has(key)) ||
       Object.values(date.options).some(value => typeof value !== 'string' || value.length > 20)) fail('Разрешены только параметры формата даты Intl');
+  // Accept legacy era settings without resetting other preferences; era is no longer shown.
+  date.options = { ...date.options };
+  delete date.options.era;
   try {
     new Intl.DateTimeFormat(clock.locale, { ...date.options, timeZone: clock.timeZone }).format();
   } catch { fail('Проверьте локаль, часовой пояс и параметры Intl.DateTimeFormat'); }

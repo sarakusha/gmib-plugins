@@ -104,6 +104,25 @@ test('backdrop migration preserves saved settings and accepts full dimming', () 
   assert.throws(() => model.validateSettings(restored));
 });
 
+test('sky backdrop survives saving, state refresh, and backend restart', async () => {
+  const h = host(); await h.activate();
+  const settings = structuredClone(model.defaults);
+  settings.appearance.backdrop = 'photo';
+  settings.appearance.dim = 0.45;
+  settings.appearance.showSource = true;
+  settings.date.options.era = 'short'; // migrate legacy field without losing the chosen backdrop
+  const saved = await h.call('PUT', '/settings', settings);
+  assert.equal(saved.settings.appearance.backdrop, 'photo');
+  assert.equal(saved.settings.appearance.dim, 0.45);
+  assert.equal(saved.settings.date.options.era, undefined);
+  assert.equal(settings.date.options.era, 'short'); // validation must not mutate the caller
+  assert.equal((await h.call('GET', '/state')).settings.appearance.backdrop, 'photo');
+  const restarted = host(h.data.get(KEY)); await restarted.activate();
+  const state = await restarted.call('GET', '/state');
+  assert.equal(state.settings.appearance.backdrop, 'photo');
+  assert.equal(state.settings.appearance.showSource, true);
+});
+
 test('weather normalization preserves valid zeroes and filters optional or malformed fields', () => {
   const result = model.normalizeWeather(fakeWeather(), 1234);
   assert.equal(result.temp, 0); assert.equal(result.feelsLike, 0);

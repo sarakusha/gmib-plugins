@@ -88,6 +88,11 @@
         </button>
       </nav>
       <div class="settings">
+        <div id="runtime-notice" class="status-block" role="status" hidden>
+          Файлы Informer обновлены, но GMIB ещё использует старый backend
+          плагина. Перезапустите GMIB и обновите эту страницу, чтобы сохранять
+          новые настройки. До перезапуска доступен предпросмотр.
+        </div>
         <section
           id="layout"
           role="tabpanel"
@@ -166,13 +171,6 @@
                 <option value="numeric">Полностью (2026)</option>
                 <option value="2-digit">Две цифры (26)</option>
               </select></label
-            ><label
-              >Эра<select data-date-option="era">
-                <option value="">Не показывать</option>
-                <option value="long">Полностью (нашей эры)</option>
-                <option value="short">Кратко (н. э.)</option>
-                <option value="narrow">Узко (н. э.)</option>
-              </select></label
             >
           </div>
           <div class="checks">
@@ -233,7 +231,7 @@
             <label
               >Подложка<select data-path="appearance.backdrop">
                 <option value="gradient">Градиент (текущая)</option>
-                <option value="photo">Небо из yandex-weather</option>
+                <option value="photo">Небо</option>
               </select></label
             >
             <label
