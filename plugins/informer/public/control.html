@@ -20,14 +20,80 @@
       </div>
     </header>
     <main class="workspace">
-      <nav class="nav" aria-label="Разделы">
-        <a href="#layout">Экран и компоновка</a><a href="#clock">Часы и дата</a
-        ><a href="#slides">Погода и слайды</a
-        ><a href="#appearance">Оформление</a
-        ><a href="#source">Источник погоды</a><a href="#output">Вывод</a>
+      <nav
+        class="nav"
+        role="tablist"
+        aria-label="Разделы"
+        aria-orientation="vertical"
+      >
+        <button
+          type="button"
+          role="tab"
+          id="tab-layout"
+          aria-controls="layout"
+          aria-selected="true"
+          tabindex="0"
+        >
+          Экран и компоновка
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-clock"
+          aria-controls="clock"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Часы и дата
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-slides"
+          aria-controls="slides"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Погода и слайды
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-appearance"
+          aria-controls="appearance"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Оформление
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-source"
+          aria-controls="source"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Источник погоды
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-output"
+          aria-controls="output"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Вывод
+        </button>
       </nav>
       <div class="settings">
-        <section id="layout">
+        <section
+          id="layout"
+          role="tabpanel"
+          aria-labelledby="tab-layout"
+          tabindex="0"
+        >
           <h2>Экран и компоновка</h2>
           <div class="fields">
             <label
@@ -50,7 +116,13 @@
             показывается под часами.
           </p>
         </section>
-        <section id="clock">
+        <section
+          id="clock"
+          role="tabpanel"
+          aria-labelledby="tab-clock"
+          tabindex="0"
+          hidden
+        >
           <h2>Часы и дата</h2>
           <div class="fields">
             <label
@@ -88,7 +160,13 @@
             поля даты Intl.DateTimeFormat.
           </p>
         </section>
-        <section id="slides">
+        <section
+          id="slides"
+          role="tabpanel"
+          aria-labelledby="tab-slides"
+          tabindex="0"
+          hidden
+        >
           <h2>Погода и слайды</h2>
           <div class="fields">
             <label
@@ -117,7 +195,13 @@
             текущей погодой.
           </p>
         </section>
-        <section id="appearance">
+        <section
+          id="appearance"
+          role="tabpanel"
+          aria-labelledby="tab-appearance"
+          tabindex="0"
+          hidden
+        >
           <h2>Оформление</h2>
           <div class="fields">
             <label
@@ -154,7 +238,13 @@
           </div>
           <div id="style-fields" class="style-fields"></div>
         </section>
-        <section id="source">
+        <section
+          id="source"
+          role="tabpanel"
+          aria-labelledby="tab-source"
+          tabindex="0"
+          hidden
+        >
           <h2>Источник погоды</h2>
           <p class="hint">
             Первый выпуск работает с сохранённым снимком Яндекс Погоды.
@@ -203,7 +293,13 @@
             <button id="capture" type="button">Получить и сохранить</button>
           </details>
         </section>
-        <section id="output">
+        <section
+          id="output"
+          role="tabpanel"
+          aria-labelledby="tab-output"
+          tabindex="0"
+          hidden
+        >
           <h2>Вывод GMIB</h2>
           <div id="output-status" class="status-block">Загрузка…</div>
           <div class="fields">
@@ -230,13 +326,15 @@
             <span class="eyebrow">ПРЕДПРОСМОТР</span>
             <h2>Ваш экран</h2>
           </div>
-          <div class="segmented">
-            <button data-preview="wide" class="active" type="button">
-              704 × 192</button
-            ><button data-preview="compact" type="button">320 × 192</button>
-          </div>
         </div>
-        <div class="preview-frame">
+        <label id="preview-screen-field" class="preview-screen-field" hidden>
+          Экран для предпросмотра
+          <select id="preview-screen-select"></select>
+        </label>
+        <p id="preview-screen-status" class="hint" role="status">
+          Загрузка экранов…
+        </p>
+        <div class="preview-frame" hidden>
           <iframe
             id="preview-frame"
             src="screen.html?preview=1"

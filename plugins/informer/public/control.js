@@ -23,7 +23,9 @@
     draft = structuredClone(defaults),
     output = null,
     ready = false,
-    previewMode = "wide",
+    previewScreenId = null,
+    outputLoading = false,
+    outputTimer = null,
     ws = null,
     reconnect = null,
     disposed = false;
@@ -156,13 +158,82 @@
       location.origin,
     );
   }
+  function screenLabel(screen) {
+    const dimensions = validDimensions(screen)
+      ? `${screen.width} × ${screen.height}`
+      : "размер не задан";
+    return `${screen.name} · ${dimensions}`;
+  }
+  function validDimensions(screen) {
+    return (
+      Number.isFinite(screen?.width) &&
+      screen.width > 0 &&
+      Number.isFinite(screen?.height) &&
+      screen.height > 0
+    );
+  }
+  function syncScreenOptions(select, screens, placeholder = false) {
+    const options = screens.map((screen) => [
+      String(screen.id),
+      screenLabel(screen),
+    ]);
+    if (placeholder) options.unshift(["", "Выберите экран"]);
+    const unchanged =
+      select.options.length === options.length &&
+      options.every(
+        ([value, label], index) =>
+          select.options[index].value === value &&
+          select.options[index].text === label,
+      );
+    // Leave native menus untouched during polling when their options did not change.
+    if (!unchanged)
+      select.replaceChildren(
+        ...options.map(([value, label]) => new Option(label, value)),
+      );
+  }
+  function updatePreviewScreens() {
+    const screens = output?.screens || [];
+    const select = $("preview-screen-select");
+    const previous = previewScreenId;
+    if (!screens.some((screen) => String(screen.id) === previewScreenId)) {
+      const bound = output?.status?.profile?.screenId;
+      previewScreenId = String(
+        screens.find((screen) => screen.id === bound)?.id ??
+          screens[0]?.id ??
+          "",
+      );
+    }
+    syncScreenOptions(select, screens);
+    if (select.value !== previewScreenId) select.value = previewScreenId;
+    $("preview-screen-field").hidden = screens.length <= 1;
+    resizePreview();
+    if (previous !== previewScreenId) preview();
+  }
   function resizePreview() {
-    const holder = document.querySelector(".preview-frame"),
-      frame = $("preview-frame");
-    holder.classList.toggle("compact", previewMode === "compact");
-    const base = previewMode === "compact" ? 320 : 704;
-    const scale = holder.clientWidth / base;
+    const holder = document.querySelector(".preview-frame");
+    const frame = $("preview-frame");
+    const screen = output?.screens?.find(
+      (s) => String(s.id) === previewScreenId,
+    );
+    const valid = validDimensions(screen);
+    holder.hidden = !valid;
+    $("preview-screen-status").textContent = screen
+      ? valid
+        ? screenLabel(screen)
+        : "У выбранного экрана не заданы размеры. Настройте экран в GMIB."
+      : "Нет доступных экранов. Добавьте экран в GMIB для предпросмотра.";
+    if (!valid) return;
+    // Keep the iframe viewport equal to the actual output; scale only its presentation.
+    const scale = Math.min(
+      1,
+      holder.clientWidth / screen.width,
+      420 / screen.height,
+    );
+    holder.style.height = `${screen.height * scale}px`;
+    frame.style.width = `${screen.width}px`;
+    frame.style.height = `${screen.height}px`;
     frame.style.transform = `scale(${scale})`;
+    frame.style.left = `${Math.max(0, (holder.clientWidth - screen.width * scale) / 2)}px`;
   }
   function updateCache() {
     const c = snapshot?.cache,
@@ -210,30 +281,47 @@
     }
   }
   async function loadOutput() {
+    if (outputLoading || disposed) return;
+    outputLoading = true;
     try {
-      output = await api("output");
+      const data = await api("output");
       const select = $("screen-select");
-      select.replaceChildren(new Option("Выберите экран", ""));
-      for (const s of output.screens || [])
-        select.add(new Option(`${s.name} · ${s.width} × ${s.height}`, s.id));
+      const previousSelection = select.value;
+      const firstLoad = output === null;
+      output = data;
+      const screens = Array.isArray(output?.screens) ? output.screens : [];
+      output.screens = screens;
+      syncScreenOptions(select, screens, true);
       const status = output.status || {};
       $("output-status").textContent =
         status.message ||
-        (status.active ? "Вывод запущен" : "Вывод не запущен") +
-          (status.profile ? ` · ${status.profile}` : "");
-      if (status.profile?.screenId)
-        select.value = String(status.profile.screenId);
-      $("auto-start").checked = Boolean(status.profile?.autoStart);
+        (status.active ? "Вывод запущен" : "Вывод не запущен");
+      const bound = status.profile?.screenId;
+      const selected = firstLoad ? String(bound ?? "") : previousSelection;
+      const nextSelection = screens.some(
+        (screen) => String(screen.id) === selected,
+      )
+        ? selected
+        : "";
+      if (select.value !== nextSelection) select.value = nextSelection;
+      if (firstLoad)
+        $("auto-start").checked = Boolean(status.profile?.autoStart);
+      updatePreviewScreens();
     } catch (e) {
       $("output-status").textContent =
         `Состояние вывода недоступно: ${e.message}`;
+      if (!output)
+        $("preview-screen-status").textContent =
+          `Экраны недоступны: ${e.message}`;
+    } finally {
+      outputLoading = false;
     }
   }
   async function action(path, method, body, done) {
     try {
       show("Выполняется…");
       const data = await api(path, method, body);
-      if (data?.settings) updateSnapshot(data);
+      if (data?.settings) updateSnapshot(data, path !== "settings");
       else await loadOutput();
       show(done);
     } catch (e) {
@@ -322,19 +410,61 @@
       await action("output", "DELETE", undefined, "Вывод остановлен.");
     } catch {}
   });
-  for (const button of document.querySelectorAll("[data-preview]"))
-    button.addEventListener("click", () => {
-      previewMode = button.dataset.preview;
-      document
-        .querySelectorAll("[data-preview]")
-        .forEach((b) => b.classList.toggle("active", b === button));
-      resizePreview();
-      preview();
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function activateTab(tab, focus = false, updateHash = true) {
+    for (const candidate of tabs) {
+      const selected = candidate === tab;
+      candidate.setAttribute("aria-selected", String(selected));
+      candidate.tabIndex = selected ? 0 : -1;
+      $(candidate.getAttribute("aria-controls")).hidden = !selected;
+    }
+    if (focus) tab.focus();
+    const hash = `#${tab.getAttribute("aria-controls")}`;
+    if (updateHash && location.hash !== hash) history.pushState(null, "", hash);
+  }
+  function activateHashTab() {
+    const tab = tabs.find(
+      (candidate) =>
+        `#${candidate.getAttribute("aria-controls")}` === location.hash,
+    );
+    activateTab(tab || tabs[0], false, false);
+  }
+  activateHashTab();
+  addEventListener("hashchange", activateHashTab);
+  const narrowNavigation = matchMedia("(max-width: 700px)");
+  function updateTabOrientation() {
+    document
+      .querySelector('[role="tablist"]')
+      .setAttribute(
+        "aria-orientation",
+        narrowNavigation.matches ? "horizontal" : "vertical",
+      );
+  }
+  updateTabOrientation();
+  narrowNavigation.addEventListener("change", updateTabOrientation);
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activateTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      let next;
+      if (["ArrowDown", "ArrowRight"].includes(event.key))
+        next = (index + 1) % tabs.length;
+      if (["ArrowUp", "ArrowLeft"].includes(event.key))
+        next = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = tabs.length - 1;
+      if (next === undefined) return;
+      event.preventDefault();
+      activateTab(tabs[next], true);
     });
+  });
+  $("preview-screen-select").addEventListener("change", (event) => {
+    previewScreenId = event.target.value;
+    resizePreview();
+    preview();
+  });
   $("preview-frame").addEventListener("load", preview);
-  new ResizeObserver(resizePreview).observe(
-    document.querySelector(".preview-frame"),
-  );
+  const previewObserver = new ResizeObserver(resizePreview);
+  previewObserver.observe(document.querySelector(".preview"));
   function connect() {
     if (disposed) return;
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -368,9 +498,13 @@
   addEventListener("pagehide", () => {
     disposed = true;
     clearTimeout(reconnect);
+    clearInterval(outputTimer);
+    previewObserver.disconnect();
+    removeEventListener("hashchange", activateHashTab);
+    narrowNavigation.removeEventListener("change", updateTabOrientation);
     ws?.close();
   });
-  resizePreview();
+  outputTimer = setInterval(loadOutput, 5000);
   load();
   connect();
 })();

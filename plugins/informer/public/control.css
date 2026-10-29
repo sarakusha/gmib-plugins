@@ -6,8 +6,8 @@
 * {
   box-sizing: border-box;
 }
-html {
-  scroll-behavior: smooth;
+[hidden] {
+  display: none !important;
 }
 body {
   margin: 0;
@@ -86,15 +86,19 @@ h2 {
   display: grid;
   gap: 2px;
 }
-.nav a {
+.nav [role="tab"] {
   color: #4c6671;
   text-decoration: none;
   font-size: 13px;
   padding: 10px 8px;
+  border: 0;
   border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
 }
-.nav a:hover,
-.nav a:focus {
+.nav [role="tab"]:hover,
+.nav [role="tab"][aria-selected="true"] {
   color: #17687c;
   border-color: #17687c;
   background: #eaf1f2;
@@ -132,7 +136,23 @@ textarea {
   color: #203343;
   padding: 9px;
   width: 100%;
-  min-height: 38px;
+  min-height: 40px;
+}
+input:not([type="checkbox"]):not([type="range"]),
+select {
+  height: 40px;
+  min-height: 40px;
+  line-height: 20px;
+  padding: 9px;
+}
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23526d77' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-size: 12px 8px;
+  background-repeat: no-repeat;
 }
 textarea {
   resize: vertical;
@@ -186,7 +206,7 @@ textarea:focus {
   color: #69818a;
 }
 .style-row input[type="color"] {
-  height: 37px;
+  height: 40px;
   width: 44px;
   padding: 2px;
   border: 1px solid #cbd9dc;
@@ -243,52 +263,27 @@ textarea:focus {
 .preview-head h2 {
   margin: 4px 0 14px;
 }
-.segmented {
-  display: flex;
-  gap: 0;
-  margin-bottom: 13px;
-}
-.segmented button {
-  border-radius: 0;
-  padding: 7px 9px;
+.preview-screen-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
   font-size: 12px;
-}
-.segmented button:first-child {
-  border-radius: 6px 0 0 6px;
-}
-.segmented button:last-child {
-  border-radius: 0 6px 6px 0;
-}
-.segmented button.active {
-  background: #17687c;
-  color: white;
-  border-color: #17687c;
+  color: #526d77;
 }
 .preview-frame {
   background: #152c3d;
   width: 100%;
-  max-width: 704px;
-  aspect-ratio: 704/192;
   box-shadow: 0 12px 30px rgba(20, 48, 62, 0.17);
   overflow: hidden;
   position: relative;
+  margin-top: 12px;
 }
 .preview-frame iframe {
   position: absolute;
   top: 0;
   left: 0;
-  width: 704px;
-  height: 192px;
   border: 0;
   transform-origin: top left;
-}
-.preview-frame.compact {
-  max-width: 320px;
-  aspect-ratio: 320/192;
-}
-.preview-frame.compact iframe {
-  width: 320px;
-  height: 192px;
 }
 @media (max-width: 1200px) {
   .workspace {
