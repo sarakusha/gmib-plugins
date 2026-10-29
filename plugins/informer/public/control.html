@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Информер · управление</title>
+    <link rel="stylesheet" href="control.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <span class="eyebrow">GMIB / INFORMER</span>
+        <h1>Часы и погода</h1>
+      </div>
+      <div class="top-actions">
+        <span id="connection" role="status">Подключение…</span
+        ><button id="save" class="primary" type="button">
+          Сохранить настройки
+        </button>
+      </div>
+    </header>
+    <main class="workspace">
+      <nav class="nav" aria-label="Разделы">
+        <a href="#layout">Экран и компоновка</a><a href="#clock">Часы и дата</a
+        ><a href="#slides">Погода и слайды</a
+        ><a href="#appearance">Оформление</a
+        ><a href="#source">Источник погоды</a><a href="#output">Вывод</a>
+      </nav>
+      <div class="settings">
+        <section id="layout">
+          <h2>Экран и компоновка</h2>
+          <div class="fields">
+            <label
+              >Режим компоновки<select data-path="layout.mode">
+                <option value="auto">Автоматически</option>
+                <option value="wide">Широкий</option>
+                <option value="compact">Компактный</option>
+              </select></label
+            ><label
+              >Ширина часов, px<input
+                type="number"
+                min="160"
+                max="1920"
+                step="1"
+                data-path="layout.leftWidth"
+            /></label>
+          </div>
+          <p class="hint">
+            Для 704×192 часы занимают 320 px слева. При 320×192 погода
+            показывается под часами.
+          </p>
+        </section>
+        <section id="clock">
+          <h2>Часы и дата</h2>
+          <div class="fields">
+            <label
+              >Локаль<input
+                data-path="clock.locale"
+                autocomplete="off" /></label
+            ><label
+              >Часовой пояс<input
+                data-path="clock.timeZone"
+                autocomplete="off" /></label
+            ><label
+              >Строк даты<select data-path="date.lines">
+                <option value="1">Одна</option>
+                <option value="2">Две</option>
+              </select></label
+            ><label
+              >Параметры даты (JSON)<textarea
+                rows="3"
+                id="date-options"
+                spellcheck="false"
+              ></textarea>
+            </label>
+          </div>
+          <div class="checks">
+            <label
+              ><input type="checkbox" data-path="clock.seconds" /> Показывать
+              секунды</label
+            ><label
+              ><input type="checkbox" data-path="date.weekday" /> Показывать
+              день недели</label
+            >
+          </div>
+          <p class="hint">
+            Пример: {"day":"numeric","month":"long","year":"numeric"}. Доступны
+            поля даты Intl.DateTimeFormat.
+          </p>
+        </section>
+        <section id="slides">
+          <h2>Погода и слайды</h2>
+          <div class="fields">
+            <label
+              >Смена слайда, с<input
+                type="number"
+                min="3"
+                max="120"
+                step="1"
+                data-path="slides.seconds"
+            /></label>
+          </div>
+          <div class="checks">
+            <label
+              ><input type="checkbox" data-path="slides.current" /> Текущая
+              погода</label
+            ><label
+              ><input type="checkbox" data-path="slides.details" />
+              Подробности</label
+            ><label
+              ><input type="checkbox" data-path="slides.forecast" />
+              Прогноз</label
+            >
+          </div>
+          <p class="hint">
+            На широком экране ближайшие два периода прогноза также видны рядом с
+            текущей погодой.
+          </p>
+        </section>
+        <section id="appearance">
+          <h2>Оформление</h2>
+          <div class="fields">
+            <label
+              >Фон<select data-path="appearance.theme">
+                <option value="auto">По времени суток</option>
+                <option value="day">День</option>
+                <option value="dusk">Сумерки</option>
+                <option value="night">Ночь</option>
+              </select></label
+            ><label
+              >Тень текста <output id="shadow-value"></output
+              ><input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                data-path="appearance.shadow" /></label
+            ><label
+              >Затемнение фона <output id="dim-value"></output
+              ><input
+                type="range"
+                min="0"
+                max="0.85"
+                step="0.05"
+                data-path="appearance.dim" /></label
+            ><label
+              >Обводка, px<input
+                type="number"
+                min="0"
+                max="3"
+                step="0.5"
+                data-path="appearance.outline"
+            /></label>
+          </div>
+          <div id="style-fields" class="style-fields"></div>
+        </section>
+        <section id="source">
+          <h2>Источник погоды</h2>
+          <p class="hint">
+            Первый выпуск работает с сохранённым снимком Яндекс Погоды.
+            Автоматическое обновление и датчик NiBUS пока не подключены.
+          </p>
+          <div id="cache-status" class="status-block">Загрузка состояния…</div>
+          <details>
+            <summary>Импорт ответа Яндекс Погоды v2</summary>
+            <label
+              >JSON ответа<textarea
+                id="import-json"
+                rows="6"
+                spellcheck="false"
+                placeholder="Вставьте ответ Informers v2"
+              ></textarea></label
+            ><button id="import" type="button">Импортировать снимок</button>
+          </details>
+          <details>
+            <summary>Получить прогноз один раз</summary>
+            <p class="hint">
+              Один запрос на эту установку. Ключ используется только для запроса
+              и не сохраняется.
+            </p>
+            <div class="fields">
+              <label
+                >Ключ API<input
+                  id="api-key"
+                  type="password"
+                  autocomplete="new-password" /></label
+              ><label
+                >Широта<input
+                  id="latitude"
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90" /></label
+              ><label
+                >Долгота<input
+                  id="longitude"
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+              /></label>
+            </div>
+            <button id="capture" type="button">Получить и сохранить</button>
+          </details>
+        </section>
+        <section id="output">
+          <h2>Вывод GMIB</h2>
+          <div id="output-status" class="status-block">Загрузка…</div>
+          <div class="fields">
+            <label
+              >Экран<select id="screen-select">
+                <option value="">Выберите экран</option>
+              </select></label
+            ><label class="check-inline"
+              ><input id="auto-start" type="checkbox" /> Запускать
+              автоматически</label
+            >
+          </div>
+          <div class="button-row">
+            <button id="start-output" type="button">
+              Назначить и запустить</button
+            ><button id="stop-output" type="button">Остановить вывод</button>
+          </div>
+        </section>
+        <div id="feedback" role="status" aria-live="polite"></div>
+      </div>
+      <aside class="preview">
+        <div class="preview-head">
+          <div>
+            <span class="eyebrow">ПРЕДПРОСМОТР</span>
+            <h2>Ваш экран</h2>
+          </div>
+          <div class="segmented">
+            <button data-preview="wide" class="active" type="button">
+              704 × 192</button
+            ><button data-preview="compact" type="button">320 × 192</button>
+          </div>
+        </div>
+        <div class="preview-frame">
+          <iframe
+            id="preview-frame"
+            src="screen.html?preview=1"
+            title="Предпросмотр информера"
+          ></iframe>
+        </div>
+        <p class="hint">
+          Изменения видны здесь сразу. На экран они попадут после сохранения.
+        </p>
+      </aside>
+    </main>
+    <script src="control.js"></script>
+  </body>
+</html>

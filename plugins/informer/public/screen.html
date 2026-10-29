@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Информер — часы и погода</title>
+    <link rel="stylesheet" href="screen.css" />
+  </head>
+  <body>
+    <div class="sky sky-a" aria-hidden="true"></div>
+    <div class="sky sky-b" aria-hidden="true"></div>
+    <main class="display" aria-label="Время и погода">
+      <section class="time-pane" aria-label="Часы и дата">
+        <div class="date-area">
+          <div id="date-main" class="date-main"></div>
+          <div id="date-extra" class="date-extra"></div>
+          <div id="weekday" class="weekday"></div>
+        </div>
+        <div class="clock" aria-label="Текущее время">
+          <span id="hour">--</span><span class="colon">:</span
+          ><span id="minute">--</span
+          ><span id="seconds-wrap" hidden
+            ><span class="colon seconds-colon">:</span
+            ><span id="second">--</span></span
+          >
+        </div>
+      </section>
+      <section class="weather-pane" aria-label="Погода">
+        <div id="weather-slide" class="weather-slide" aria-live="off"></div>
+        <div class="weather-footer">
+          <span id="freshness"></span><span class="source">Яндекс Погода</span>
+        </div>
+      </section>
+    </main>
+    <script src="screen.js"></script>
+  </body>
+</html>

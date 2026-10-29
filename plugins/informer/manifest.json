@@ -1,0 +1,12 @@
+{
+  "id": "informer",
+  "name": "Informer — часы и погода",
+  "version": "1.0.0",
+  "description": "Адаптивные часы, дата и погодные слайды на сохранённом прогнозе.",
+  "gmibApi": "^1.1.0",
+  "main": "dist/main.cjs",
+  "public": "public",
+  "permissions": ["http.routes", "storage", "realtime", "output.pages", "output.control"],
+  "pages": [{ "id": "screen", "title": "Informer/Часы и погода", "path": "screen.html" }],
+  "control": { "title": "Настройки Informer", "path": "control.html" }
+}

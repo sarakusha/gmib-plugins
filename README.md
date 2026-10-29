@@ -16,6 +16,7 @@ https://raw.githubusercontent.com/sarakusha/gmib-plugins/main/catalog.json
 
 ## Плагины
 
+- [`informer`](plugins/informer/README.md) — часы, дата и погодные слайды; первый прототип с сохранённым прогнозом для 704×192 и 320×192;
 - [`icehockey`](plugins/icehockey/README.md) — самостоятельный хоккейный пульт и LED-табло; составы необязательны;
 - [`sports-roster`](plugins/sports-roster/README.md) — общая база команд и составов, локальная PWA;
 - `parking-counter` — минимальный полный пример со страницей вывода и управления;
