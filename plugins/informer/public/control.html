@@ -231,8 +231,14 @@
           <h2>Оформление</h2>
           <div class="fields">
             <label
-              >Фон<select data-path="appearance.theme">
-                <option value="auto">По времени суток</option>
+              >Подложка<select data-path="appearance.backdrop">
+                <option value="gradient">Градиент (текущая)</option>
+                <option value="photo">Небо из yandex-weather</option>
+              </select></label
+            >
+            <label
+              >Время суток<select data-path="appearance.theme">
+                <option value="auto">Автоматически</option>
                 <option value="day">День</option>
                 <option value="dusk">Сумерки</option>
                 <option value="night">Ночь</option>
@@ -246,11 +252,11 @@
                 step="0.05"
                 data-path="appearance.shadow" /></label
             ><label
-              >Затемнение фона <output id="dim-value"></output
+              >Затемнение подложки <output id="dim-value"></output
               ><input
                 type="range"
                 min="0"
-                max="0.85"
+                max="1"
                 step="0.05"
                 data-path="appearance.dim" /></label
             ><label
@@ -261,6 +267,12 @@
                 step="0.5"
                 data-path="appearance.outline"
             /></label>
+          </div>
+          <div class="checks">
+            <label
+              ><input type="checkbox" data-path="appearance.showSource" />
+              Показывать «Яндекс Погода»</label
+            >
           </div>
           <div id="style-fields" class="style-fields"></div>
         </section>

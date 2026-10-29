@@ -9,7 +9,14 @@
       weekday: true,
       options: { day: "numeric", month: "long" },
     },
-    appearance: { theme: "auto", shadow: 0.6, dim: 0.15, outline: 0 },
+    appearance: {
+      theme: "auto",
+      backdrop: "gradient",
+      showSource: false,
+      shadow: 0.6,
+      dim: 0.15,
+      outline: 0,
+    },
     styles: {
       clock: { font: "sans", size: 80, color: "#ffffff" },
       date: { font: "sans", size: 19, color: "#ffffff" },
@@ -72,7 +79,6 @@
     ws = null,
     reconnect = null,
     disposed = false,
-    connectionLost = false,
     refreshTimer = null,
     tickTimer = null,
     slideTimer = null;
@@ -237,15 +243,27 @@
     return "clear";
   }
   function updateSky(now) {
-    const key = `${timeOfDay(now)}/${weatherKind(snapshot?.weather?.condition)}`;
+    const time = timeOfDay(now);
+    const condition = snapshot?.weather?.condition;
+    const backdrop = settings.appearance.backdrop || "gradient";
+    const cover = InformerWeather.cloudCover(condition);
+    const key = `${time}/${weatherKind(condition)}/${backdrop}/${cover}`;
     if (key === lastSky) return;
     lastSky = key;
     skyIndex = 1 - skyIndex;
     const active = document.querySelector(skyIndex ? ".sky-b" : ".sky-a");
     const inactive = document.querySelector(skyIndex ? ".sky-a" : ".sky-b");
     const [tod, kind] = key.split("/");
-    active.dataset.time = tod;
-    active.dataset.weather = kind;
+    active.className = [
+      ...new Set([
+        "sky",
+        skyIndex ? "sky-b" : "sky-a",
+        backdrop,
+        tod,
+        kind,
+        cover,
+      ]),
+    ].join(" ");
     active.style.opacity = "1";
     inactive.style.opacity = "0";
     if (snapshot) render();
@@ -261,6 +279,12 @@
       root.setProperty(`--${key}-color`, v.color);
     }
     root.setProperty("--shade", String(settings.appearance.dim));
+    document.querySelector(".weather-footer").hidden =
+      !settings.appearance.showSource;
+    document.body.classList.toggle(
+      "no-source",
+      !settings.appearance.showSource,
+    );
     root.setProperty("--shadow", String(settings.appearance.shadow));
     root.setProperty("--outline", `${settings.appearance.outline}px`);
     const weatherSize = s.weather?.size || DEFAULT.styles.weather.size;
@@ -359,8 +383,7 @@
     return `<div class="forecast-item">${icon(f.condition, f.daytime)}<span class="forecast-label">${label}</span><span class="forecast-temp">${t}</span></div>`;
   }
   function render() {
-    const weather = snapshot?.weather,
-      cache = snapshot?.cache;
+    const weather = snapshot?.weather;
     const slides = availableSlides(),
       kind = slides[slide % slides.length];
     let html = "";
@@ -368,33 +391,26 @@
       html = '<div class="empty-weather">Погода недоступна</div>';
     if (kind === "current")
       html = `<div class="weather-caption">Сейчас</div><div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${document.body.classList.contains("compact") || !settings.slides.forecast ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
-    if (kind === "details")
-      html = `<div class="weather-caption">Погодные условия</div><div class="detail-grid">${Number.isFinite(weather.windSpeed) ? `<div><div class="detail-label">Ветер</div><div class="detail-value">${weather.windSpeed} м/с ${windName(weather.windDir)}</div></div>` : ""}${Number.isFinite(weather.pressureMm) ? `<div><div class="detail-label">Давление</div><div class="detail-value">${weather.pressureMm} мм</div></div>` : ""}${Number.isFinite(weather.humidity) ? `<div><div class="detail-label">Влажность</div><div class="detail-value">${weather.humidity}%</div></div>` : ""}</div>`;
+    if (kind === "details") {
+      const angle = InformerWeather.windAngle(weather.windDir);
+      const direction = weather.windDir
+        ? `${angle === null ? "" : `<img class="wind-direction" src="assets/icons/wind-direction.svg" alt="" aria-hidden="true" style="transform:rotate(${angle}deg)">`}<span>${windName(weather.windDir)}</span>`
+        : "";
+      const detail = (name, asset, value, extra = "") =>
+        `<div class="detail-reading" role="group" aria-label="${name}" title="${name}"><img class="detail-icon" src="assets/icons/${asset}.svg" alt="" aria-hidden="true"><span class="detail-value">${value}</span>${extra}</div>`;
+      html = `<div class="weather-caption">Погодные условия</div><div class="detail-grid">${Number.isFinite(weather.windSpeed) ? detail("Ветер", "wind", `${weather.windSpeed} м/с`, direction) : ""}${Number.isFinite(weather.pressureMm) ? detail("Давление", "pressure", `${weather.pressureMm} мм рт.ст.`) : ""}${Number.isFinite(weather.humidity) ? detail("Влажность", "humidity", `${weather.humidity}%`) : ""}</div>`;
+    }
     if (kind === "forecast")
       html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${weather.forecast.slice(0, 2).map(forecastItem).join("")}</div>`;
     $("weather-slide").innerHTML = html;
-    const origin =
-      cache?.origin === "sample"
-        ? "Демо · "
-        : cache?.origin === "capture"
-          ? "Снимок · "
-          : cache?.origin === "import"
-            ? "Импорт · "
-            : "";
-    const date = weather?.observedAt || weather?.fetchedAt || cache?.fetchedAt;
-    $("freshness").textContent =
-      (connectionLost ? "Нет связи · " : "") +
-      origin +
-      (date
-        ? new Intl.DateTimeFormat(settings.clock.locale, {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: settings.clock.timeZone,
-          }).format(new Date(date))
-        : "нет данных");
+    const detailRow = document.querySelector(".detail-grid");
+    if (detailRow)
+      detailRow.style.setProperty(
+        "--detail-fit",
+        String(
+          Math.min(1, $("weather-slide").clientWidth / detailRow.scrollWidth),
+        ),
+      );
   }
   function advance() {
     const count = availableSlides().length;
@@ -412,7 +428,6 @@
   }
   function accept(data) {
     if (!data || typeof data !== "object" || !data.settings) return;
-    connectionLost = false;
     snapshot = data;
     if (!preview) applySettings(data.settings);
     else {
@@ -427,7 +442,6 @@
       if (!r.ok) throw Error();
       accept(await r.json());
     } catch {
-      connectionLost = true;
       render();
     }
   }
@@ -448,7 +462,6 @@
       });
       ws.addEventListener("close", () => {
         if (disposed) return;
-        connectionLost = true;
         render();
         reconnect = setTimeout(connect, 3000);
       });

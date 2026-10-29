@@ -84,6 +84,26 @@ test('settings reject invalid Intl values, timezone, and colors', () => {
   });
 });
 
+test('backdrop migration preserves saved settings and accepts full dimming', () => {
+  const saved = structuredClone(model.defaults);
+  delete saved.appearance.backdrop;
+  delete saved.appearance.showSource;
+  saved.clock.timeZone = 'UTC';
+  saved.appearance.dim = 0.65;
+  const restored = model.validateSettings(saved);
+  assert.equal(restored.appearance.backdrop, 'gradient');
+  assert.equal(restored.appearance.showSource, false);
+  restored.appearance.showSource = true;
+  assert.equal(model.validateSettings(restored).appearance.showSource, true);
+  assert.equal(restored.appearance.dim, 0.65);
+  assert.equal(restored.clock.timeZone, 'UTC');
+  restored.appearance.backdrop = 'photo';
+  restored.appearance.dim = 1;
+  assert.equal(model.validateSettings(restored).appearance.dim, 1);
+  restored.appearance.backdrop = 'invalid';
+  assert.throws(() => model.validateSettings(restored));
+});
+
 test('weather normalization preserves valid zeroes and filters optional or malformed fields', () => {
   const result = model.normalizeWeather(fakeWeather(), 1234);
   assert.equal(result.temp, 0); assert.equal(result.feelsLike, 0);

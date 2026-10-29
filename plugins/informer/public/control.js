@@ -9,7 +9,14 @@
       weekday: true,
       options: { day: "numeric", month: "long" },
     },
-    appearance: { theme: "auto", shadow: 0.6, dim: 0.15, outline: 0 },
+    appearance: {
+      theme: "auto",
+      backdrop: "gradient",
+      showSource: false,
+      shadow: 0.6,
+      dim: 0.15,
+      outline: 0,
+    },
     styles: {
       clock: { font: "sans", size: 80, color: "#ffffff" },
       date: { font: "sans", size: 19, color: "#ffffff" },
@@ -111,7 +118,7 @@
           : draft.date.options[field] || "";
     });
     $("shadow-value").textContent = draft.appearance.shadow;
-    $("dim-value").textContent = draft.appearance.dim;
+    $("dim-value").textContent = `${Math.round(draft.appearance.dim * 100)}%`;
   }
   function readDraft() {
     for (const input of document.querySelectorAll("[data-path]")) {
@@ -130,6 +137,8 @@
       if (input.value) draft.date.options[field] = input.value;
       else delete draft.date.options[field];
     }
+    $("dim-value").textContent = `${Math.round(draft.appearance.dim * 100)}%`;
+    $("shadow-value").textContent = draft.appearance.shadow;
     validate();
   }
   function validate() {

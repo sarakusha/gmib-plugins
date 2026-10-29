@@ -24,7 +24,8 @@ function validateSettings(value) {
         if (!object(style) || !['sans', 'mono', 'serif'].includes(style.font) ||
             !number(style.size, 8, 160) || !/^#[0-9a-f]{6}$/i.test(style.color)) fail(`Некорректное оформление: ${field}`);
         result.styles[field] = {font: style.font, size: style.size, color: style.color};
-      } else result[key][field] = value[key][field];
+      } else result[key][field] = key === 'appearance' && ['backdrop', 'showSource'].includes(field) && value[key][field] === undefined
+        ? defaults.appearance[field] : value[key][field];
     }
   }
   const {layout, clock, date, appearance, slides} = result;
@@ -37,8 +38,8 @@ function validateSettings(value) {
   try {
     new Intl.DateTimeFormat(clock.locale, { ...date.options, timeZone: clock.timeZone }).format();
   } catch { fail('Проверьте локаль, часовой пояс и параметры Intl.DateTimeFormat'); }
-  if (!['auto', 'day', 'dusk', 'night'].includes(appearance.theme) || !number(appearance.shadow, 0, 1) ||
-      !number(appearance.dim, 0, .85) || !number(appearance.outline, 0, 3)) fail('Некорректные параметры фона');
+  if (typeof appearance.showSource !== 'boolean' || !['gradient', 'photo'].includes(appearance.backdrop) || !['auto', 'day', 'dusk', 'night'].includes(appearance.theme) || !number(appearance.shadow, 0, 1) ||
+      !number(appearance.dim, 0, 1) || !number(appearance.outline, 0, 3)) fail('Некорректные параметры фона');
   if (!number(slides.seconds, 3, 120) || ['current', 'details', 'forecast'].some(key => typeof slides[key] !== 'boolean') ||
       ![slides.current, slides.details, slides.forecast].some(Boolean)) fail('Включите хотя бы один слайд; интервал — 3–120 секунд');
   return structuredClone(result);
