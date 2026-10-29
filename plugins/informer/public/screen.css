@@ -642,3 +642,53 @@ body:not(.compact) .forecast-row {
   flex: none;
   margin-top: calc(12px * var(--scale));
 }
+
+.value-motion {
+  display: inline-grid;
+  position: relative;
+  perspective: 500px;
+  vertical-align: baseline;
+}
+.value-incoming,
+.value-outgoing {
+  display: block;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+.value-outgoing {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+}
+.value-flip .value-outgoing {
+  animation: value-fold-out 220ms ease-in forwards;
+}
+.value-flip .value-incoming {
+  animation: value-fold-in 440ms ease-out both;
+}
+@keyframes value-fold-out {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(-90deg);
+  }
+}
+@keyframes value-fold-in {
+  0%,
+  50% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .value-flip .value-outgoing {
+    display: none;
+    animation: none;
+  }
+  .value-flip .value-incoming {
+    animation: none;
+  }
+}

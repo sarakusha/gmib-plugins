@@ -104,6 +104,38 @@ test('backdrop migration preserves saved settings and accepts full dimming', () 
   assert.throws(() => model.validateSettings(restored));
 });
 
+test('value animation defaults and legacy settings migrate; invalid values are rejected', async () => {
+  const legacy = structuredClone(model.defaults);
+  delete legacy.appearance.valueAnimation;
+  legacy.clock.timeZone = 'UTC';
+  const migrated = model.validateSettings(legacy);
+  assert.equal(migrated.appearance.valueAnimation, 'none');
+  assert.equal(migrated.clock.timeZone, 'UTC');
+  assert.equal(legacy.appearance.valueAnimation, undefined);
+
+  for (const invalid of ['', 'fade', null, 1]) {
+    const settings = structuredClone(model.defaults);
+    settings.appearance.valueAnimation = invalid;
+    assert.throws(() => model.validateSettings(settings));
+  }
+
+  const h = host({ version: 1, settings: legacy });
+  await h.activate();
+  assert.deepEqual((await h.call('GET', '/state')).settings, migrated);
+  const settings = structuredClone(migrated);
+  settings.appearance.valueAnimation = 'flip';
+  assert.deepEqual((await h.call('PUT', '/settings', settings)).settings, settings);
+  assert.equal((await h.call('GET', '/state')).settings.appearance.valueAnimation, 'flip');
+  const restarted = host(h.data.get(KEY));
+  await restarted.activate();
+  assert.equal((await restarted.call('GET', '/state')).settings.appearance.valueAnimation, 'flip');
+  for (const invalid of ['', 'fade', null]) {
+    const rejected = structuredClone(model.defaults);
+    rejected.appearance.valueAnimation = invalid;
+    assert.equal((await restarted.call('PUT', '/settings', rejected)).status, 422);
+  }
+});
+
 test('legacy weather styles migrate without changing unrelated preferences or the input', async () => {
   const legacy = structuredClone(model.defaults);
   delete legacy.styles.forecast;

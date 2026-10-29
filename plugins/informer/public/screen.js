@@ -13,6 +13,7 @@
       theme: "auto",
       backdrop: "gradient",
       showSource: false,
+      valueAnimation: "none",
       shadow: 0.6,
       dim: 0.15,
       outline: 0,
@@ -166,15 +167,16 @@
   function updateClock() {
     const now = new Date(),
       p = clockParts(now);
-    $("hour").textContent = p.hour;
-    $("minute").textContent = p.minute;
-    $("second").textContent = p.second;
+    const animated = settings.appearance.valueAnimation === "flip";
+    InformerMotion.set($("hour"), p.hour, animated);
+    InformerMotion.set($("minute"), p.minute, animated);
+    InformerMotion.set($("second"), p.second, animated);
     const dayKey = `${new Intl.DateTimeFormat("en-CA", { timeZone: settings.clock.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now)}-${settings.clock.locale}-${JSON.stringify(settings.date)}`;
     if (dayKey !== lastDate) {
       lastDate = dayKey;
       const d = InformerDate.formatDate(now, settings.date, settings.clock);
-      $("date-main").textContent = d.calendar;
-      $("weekday").textContent = d.weekday;
+      InformerMotion.set($("date-main"), d.calendar, animated);
+      InformerMotion.set($("weekday"), d.weekday, animated);
       $("date-join").hidden = !(d.calendar && d.weekday);
       const hasDate = Boolean(d.calendar || d.weekday);
       document.querySelector(".date-area").hidden = !hasDate;
@@ -272,6 +274,13 @@
   }
   function applySettings(value) {
     settings = value && value.styles ? value : DEFAULT;
+    if (settings.appearance.valueAnimation !== "flip") {
+      document.querySelectorAll("[data-value]").forEach((el) => {
+        const value = el.dataset.value;
+        delete el.dataset.value;
+        InformerMotion.set(el, value, false);
+      });
+    }
     const root = document.documentElement.style;
     const s = settings.styles;
     for (const key of Object.keys(DEFAULT.styles)) {
@@ -353,13 +362,13 @@
       a.push("forecast");
     return a.length ? a : ["empty"];
   }
-  function forecastItem(f) {
+  function forecastItem(f, index) {
     const label = parts[f.part] || "Прогноз";
     const t =
       Number.isFinite(f.tempMin) && Number.isFinite(f.tempMax)
         ? `${temp(f.tempMin)}…${temp(f.tempMax)}`
         : temp(Number.isFinite(f.tempMax) ? f.tempMax : f.tempMin);
-    return `<div class="forecast-item">${icon(f.condition, f.daytime)}<span class="forecast-label">${label}</span><span class="forecast-temp">${t}</span></div>`;
+    return `<div class="forecast-item">${icon(f.condition, f.daytime)}<span class="forecast-label" data-value-key="forecast-${index}-${f.part}-label">${label}</span><span class="forecast-temp" data-value-key="forecast-${index}-${f.part}-temp">${t}</span></div>`;
   }
   function metrics(weather) {
     if (!weather) return "";
@@ -368,9 +377,14 @@
       ? `${angle === null ? "" : `<img class="wind-direction" src="assets/icons/wind-direction.svg" alt="" aria-hidden="true" style="transform:rotate(${angle}deg)">`}<span>${windName(weather.windDir)}</span>`
       : "";
     const detail = (name, asset, value, extra = "") =>
-      `<div class="detail-reading" role="group" aria-label="${name}" title="${name}"><img class="detail-icon" src="assets/icons/${asset}.svg" alt="" aria-hidden="true"><span class="detail-value">${value}</span>${extra}</div>`;
+      `<div class="detail-reading" role="group" aria-label="${name}" title="${name}"><img class="detail-icon" src="assets/icons/${asset}.svg" alt="" aria-hidden="true"><span class="detail-value" data-value-key="${asset}">${value}</span>${extra}</div>`;
     return `<div class="detail-grid">${Number.isFinite(weather.windSpeed) ? detail("Ветер", "wind", `${weather.windSpeed} м/с`, direction) : ""}${Number.isFinite(weather.pressureMm) ? detail("Давление", "pressure", `${weather.pressureMm} мм рт.ст.`) : ""}${Number.isFinite(weather.humidity) ? detail("Влажность", "humidity", `${weather.humidity}%`) : ""}</div>`;
   }
+  let lastWeatherKind = "",
+    lastWeatherMarkup = "";
+  const valueSelector =
+    ".weather-temp, .weather-condition, .weather-sub, .forecast-label, .forecast-temp, .detail-value";
+  const valueKey = (el) => el.dataset.valueKey || el.className;
   function render() {
     const weather = snapshot?.weather;
     const compact = document.body.classList.contains("compact");
@@ -380,7 +394,17 @@
         : compact
           ? slides[slide % slides.length]
           : "current";
-    $("clock-metrics").innerHTML = compact
+    const weatherKind = `${compact}/${kind}`;
+    const oldValues = new Map(
+      weatherKind === lastWeatherKind
+        ? [...document.querySelectorAll(valueSelector)].map((el) => [
+            valueKey(el),
+            el.dataset.value ?? el.textContent,
+          ])
+        : [],
+    );
+    lastWeatherKind = weatherKind;
+    const metricsHtml = compact
       ? ""
       : `<div class="weather-content">${metrics(weather)}</div>`;
     let html = "";
@@ -392,7 +416,23 @@
       html = `<div class="weather-caption">Погодные условия</div>${metrics(weather)}`;
     if (kind === "forecast")
       html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${weather.forecast.slice(0, 2).map(forecastItem).join("")}</div>`;
+    const markup = `${weatherKind}/${metricsHtml}/${html}`;
+    if (markup === lastWeatherMarkup) {
+      fitWeatherContent();
+      if (!compact) fitContent($("clock-metrics"));
+      return;
+    }
+    lastWeatherMarkup = markup;
+    $("clock-metrics").innerHTML = metricsHtml;
     $("weather-slide").innerHTML = `<div class="weather-content">${html}</div>`;
+    document.querySelectorAll(valueSelector).forEach((el) => {
+      InformerMotion.set(
+        el,
+        el.textContent,
+        settings.appearance.valueAnimation === "flip",
+        oldValues.get(valueKey(el)),
+      );
+    });
     fitWeatherContent();
     if (!compact) fitContent($("clock-metrics"));
   }
@@ -402,6 +442,8 @@
   function fitContent(pane) {
     const content = pane.querySelector(".weather-content");
     if (!content || !content.offsetWidth || !content.offsetHeight) return;
+    content.style.setProperty("--weather-fit", "1");
+    content.style.marginTop = "0";
     const natural = content.getBoundingClientRect();
     const fit = Math.min(
       1,

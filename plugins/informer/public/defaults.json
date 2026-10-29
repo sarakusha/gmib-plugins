@@ -19,6 +19,7 @@
   "appearance": {
     "theme": "auto",
     "backdrop": "gradient",
+    "valueAnimation": "none",
     "showSource": false,
     "shadow": 0.6,
     "dim": 0.15,

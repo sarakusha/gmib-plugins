@@ -12,6 +12,7 @@
     appearance: {
       theme: "auto",
       backdrop: "gradient",
+      valueAnimation: "none",
       showSource: false,
       shadow: 0.6,
       dim: 0.15,
@@ -296,6 +297,7 @@
     snapshot = data;
     settingsSupported =
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
+      ["none", "flip"].includes(data.settings.appearance?.valueAnimation) &&
       typeof data.settings.appearance?.showSource === "boolean" &&
       Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
     $("runtime-notice").hidden = settingsSupported;
@@ -382,6 +384,8 @@
       if (
         path === "settings" &&
         (data?.settings?.appearance?.backdrop !== body.appearance.backdrop ||
+          data?.settings?.appearance?.valueAnimation !==
+            body.appearance.valueAnimation ||
           data?.settings?.appearance?.showSource !==
             body.appearance.showSource ||
           ["forecast", "metrics"].some((key) =>
