@@ -8,14 +8,14 @@ const ENDPOINT = 'https://api.weather.yandex.ru/v2/informers';
 exports.activate = async ({ storage, http, events, output, logger }) => {
   let saved = await storage.get(STORAGE_KEY);
   if (!saved || saved.version !== 1) saved = {};
-  let settings, weather;
+  let settings, weather, restored = true;
   try { settings = validateSettings(saved.settings); } catch { settings = structuredClone(defaults); }
-  try { weather = restoreWeather(saved.weather); } catch { weather = normalizeWeather(sample, 0); }
+  try { weather = restoreWeather(saved.weather); } catch { weather = normalizeWeather(sample, 0); restored = false; }
   let record = { version: 1, settings, weather,
-    cache: { mode: 'frozen', origin: ['sample', 'capture', 'import'].includes(saved.cache?.origin) ? saved.cache.origin : 'sample',
+    cache: { mode: 'frozen', origin: restored && ['sample', 'capture', 'import'].includes(saved.cache?.origin) ? saved.cache.origin : 'sample',
       fetchedAt: weather.fetchedAt,
       attemptedAt: Number.isFinite(saved.cache?.attemptedAt) && saved.cache.attemptedAt >= 0 ? saved.cache.attemptedAt : null,
-      message: typeof saved.cache?.message === 'string' ? saved.cache.message.slice(0, 240) : 'Сохранённый пример. Автоматические запросы выключены.' } };
+      message: restored && typeof saved.cache?.message === 'string' ? saved.cache.message.slice(0, 240) : 'Сохранённый пример. Автоматические запросы выключены.' } };
   const snapshot = () => structuredClone({ settings: record.settings, weather: record.weather, cache: record.cache });
   const persist = async next => {
     await storage.set(STORAGE_KEY, next);

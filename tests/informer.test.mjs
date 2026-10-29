@@ -97,6 +97,10 @@ test('weather normalization preserves valid zeroes and filters optional or malfo
   assert.deepEqual(model.normalizeWeather({ fact: { temp: 0, condition: 'clear' } }).forecast, []);
   assert.throws(() => model.normalizeWeather({ fact: { temp: '0', condition: 'clear' } }));
   assert.equal(model.normalizeWeather({ fact: { temp: 0, condition: 'clear', humidity: 101 } }).humidity, null);
+  for (const date of ['2026-02-30', '2026-99-99', 'not-a-date']) {
+    const raw = fakeWeather(); raw.forecast.date = date;
+    assert.deepEqual(model.normalizeWeather(raw).forecast, []);
+  }
 });
 
 test('plural forecasts accept named part objects and preserve valid forecast fields', () => {

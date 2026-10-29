@@ -7,6 +7,11 @@ const number = (value, min, max) => typeof value === 'number' && Number.isFinite
 const optional = (value, min, max) => number(value, min, max) ? value : null;
 const text = (value, fallback = '') => typeof value === 'string' ? value.slice(0, 100) : fallback;
 const dateOptions = new Set(['dateStyle', 'weekday', 'era', 'year', 'month', 'day']);
+const calendarDate = value => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+};
 
 function validateSettings(value) {
   if (!object(value)) fail('Настройки должны быть объектом');
@@ -46,7 +51,7 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
   const days = Array.isArray(raw.forecasts) ? raw.forecasts.slice(0, 2) : [raw.forecast];
   const forecast = [];
   for (const day of days) {
-    if (!object(day) || !/^\d{4}-\d{2}-\d{2}$/.test(day.date)) continue;
+    if (!object(day) || !calendarDate(day.date)) continue;
     const parts = Array.isArray(day.parts) ? day.parts : object(day.parts)
       ? Object.entries(day.parts).map(([part_name, data]) => ({ ...data, part_name })) : [];
     for (const part of parts) {
