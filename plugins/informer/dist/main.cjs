@@ -2,6 +2,7 @@
 
 const { defaults, validateSettings, normalizeWeather, restoreWeather } = require('./model.cjs');
 const sample = require('./sample.json');
+const { LIMIT, normalizeName, importTheme, restoreThemes } = require('./themes.cjs');
 const STORAGE_KEY = 'informer.v1';
 const ENDPOINT = 'https://api.weather.yandex.ru/v2/informers';
 
@@ -11,7 +12,7 @@ exports.activate = async ({ storage, http, events, output, logger }) => {
   let settings, weather, restored = true;
   try { settings = validateSettings(saved.settings); } catch { settings = structuredClone(defaults); }
   try { weather = restoreWeather(saved.weather); } catch { weather = normalizeWeather(sample, 0); restored = false; }
-  let record = { version: 1, settings, weather,
+  let record = { version: 1, settings, weather, themes: restoreThemes(saved.themes),
     cache: { mode: 'frozen', origin: restored && ['sample', 'capture', 'import'].includes(saved.cache?.origin) ? saved.cache.origin : 'sample',
       fetchedAt: weather.fetchedAt,
       attemptedAt: Number.isFinite(saved.cache?.attemptedAt) && saved.cache.attemptedAt >= 0 ? saved.cache.attemptedAt : null,
@@ -35,6 +36,24 @@ exports.activate = async ({ storage, http, events, output, logger }) => {
     catch { logger.warn('Informer: не удалось сохранить данные или выполнить операцию'); return error(500, 'Операция не выполнена. Проверьте журнал GMIB.'); }
   };
   http.get('/state', () => snapshot());
+  const catalog = () => structuredClone({ themes: record.themes });
+  http.get('/themes', () => catalog());
+  http.post('/themes', route(request => serial(async () => {
+    let theme;
+    try { theme = importTheme(request.body); } catch (err) { return error(422, err.message); }
+    const index = record.themes.findIndex(item => item.name === theme.name);
+    if (index < 0 && record.themes.length >= LIMIT) return error(409, 'Можно сохранить не более 50 тем');
+    const themes = record.themes.slice();
+    if (index < 0) themes.push(theme); else themes[index] = theme;
+    await persist({ ...record, themes });
+    return { ...catalog(), theme: structuredClone(theme) };
+  })));
+  http.delete('/themes', route(request => serial(async () => {
+    let name;
+    try { name = normalizeName(request.body?.name); } catch (err) { return error(422, err.message); }
+    await persist({ ...record, themes: record.themes.filter(theme => theme.name !== name) });
+    return catalog();
+  })));
   http.put('/settings', route(request => serial(async () => {
     let settings;
     try { settings = validateSettings(request.body); } catch (err) { return error(422, err.message); }

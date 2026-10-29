@@ -29,6 +29,7 @@
     },
     slides: { seconds: 8, current: true, details: true, forecast: true },
   };
+  let themeControls = null;
   let snapshot = null,
     draft = structuredClone(defaults),
     output = null,
@@ -302,6 +303,7 @@
       Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
     $("runtime-notice").hidden = settingsSupported;
     $("save").disabled = !settingsSupported;
+    themeControls?.refresh();
     if (!keepDraft) {
       draft = structuredClone(data.settings);
       draft.appearance = { ...defaults.appearance, ...draft.appearance };
@@ -589,6 +591,25 @@
     removeEventListener("hashchange", activateHashTab);
     narrowNavigation.removeEventListener("change", updateTabOrientation);
     ws?.close();
+  });
+  themeControls = InformerThemes.init({
+    canUse: () => ready && settingsSupported,
+    api,
+    show,
+    getDraft() {
+      if (!ready) throw Error("Дождитесь загрузки настроек.");
+      if (!settingsSupported)
+        throw Error("Обновите backend Informer и перезапустите GMIB.");
+      readDraft();
+      return structuredClone(draft);
+    },
+    setDraft(settings) {
+      if (!ready || !settingsSupported)
+        throw Error("Дождитесь загрузки совместимых настроек Informer.");
+      draft = structuredClone(settings);
+      bind();
+      preview();
+    },
   });
   outputTimer = setInterval(loadOutput, 5000);
   load();

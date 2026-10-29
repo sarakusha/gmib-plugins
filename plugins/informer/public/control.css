@@ -336,3 +336,14 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr) 75px 44px;
   }
 }
+
+.theme-fields {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 18px;
+}
+.theme-actions {
+  flex-wrap: wrap;
+}
+#theme-file {
+  height: auto;
+}

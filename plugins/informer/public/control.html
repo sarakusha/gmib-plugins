@@ -69,6 +69,16 @@
         <button
           type="button"
           role="tab"
+          id="tab-themes"
+          aria-controls="themes"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Темы
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="tab-source"
           aria-controls="source"
           aria-selected="false"
@@ -278,6 +288,68 @@
           <div id="style-fields" class="style-fields"></div>
         </section>
         <section
+          id="themes"
+          role="tabpanel"
+          aria-labelledby="tab-themes"
+          tabindex="0"
+          hidden
+        >
+          <h2>Темы</h2>
+          <p class="hint">
+            Тема — все текущие параметры часов, погоды и оформления. Загрузите
+            тему для предпросмотра, затем сохраните настройки для вывода на
+            экран.
+          </p>
+          <div class="fields theme-fields">
+            <label
+              >Название темы<input
+                id="theme-name"
+                type="text"
+                maxlength="160"
+                placeholder="Например, Волгатех — день"
+                autocomplete="off"
+            /></label>
+          </div>
+          <div class="button-row theme-actions">
+            <button id="theme-save" type="button" disabled>
+              Сохранить тему
+            </button>
+            <button id="theme-export" type="button" disabled>
+              Экспорт JSON
+            </button>
+          </div>
+          <p class="hint">
+            Сохраняются текущие значения из настроек. Тема с тем же названием
+            будет заменена.
+          </p>
+          <div class="fields theme-fields">
+            <label
+              >Сохранённые темы<select id="theme-select" disabled>
+                <option value="">Тем пока нет</option>
+              </select></label
+            >
+          </div>
+          <div class="button-row theme-actions">
+            <button id="theme-load" type="button" disabled>Загрузить</button>
+            <button id="theme-delete" type="button" disabled>Удалить</button>
+          </div>
+          <div class="fields theme-fields">
+            <label
+              >Импорт темы из JSON<input
+                id="theme-file"
+                type="file"
+                accept=".json,application/json"
+                disabled
+            /></label>
+          </div>
+          <p id="theme-status" class="hint" role="status">Загрузка тем…</p>
+          <p class="hint">
+            Темы хранятся на этом устройстве GMIB. Для переноса скачайте JSON и
+            импортируйте его на другом устройстве. Погода, ключи API и выбранный
+            экран в файл не входят.
+          </p>
+        </section>
+        <section
           id="source"
           role="tabpanel"
           aria-labelledby="tab-source"
@@ -385,6 +457,7 @@
         </p>
       </aside>
     </main>
+    <script src="themes.js"></script>
     <script src="control.js"></script>
   </body>
 </html>
