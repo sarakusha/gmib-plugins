@@ -1,0 +1,75 @@
+{
+  "now": 1793268425,
+  "now_dt": "2026-10-29T10:07:05.498513Z",
+  "info": {
+    "lat": 56.6333,
+    "lon": 47.8908
+  },
+  "fact": {
+    "obs_time": 1793264400,
+    "temp": 11,
+    "feels_like": 7,
+    "icon": "skc_d",
+    "condition": "partly-cloudy",
+    "wind_speed": 2,
+    "wind_dir": "w",
+    "pressure_mm": 767,
+    "pressure_pa": 1022,
+    "humidity": 39,
+    "daytime": "d",
+    "polar": false,
+    "season": "autumn",
+    "wind_gust": 4.1
+  },
+  "forecast": {
+    "date": "2026-10-29",
+    "date_ts": 1793221200,
+    "week": 44,
+    "sunrise": "06:50",
+    "sunset": "16:14",
+    "moon_code": 2,
+    "moon_text": "moon-code-2",
+    "parts": [
+      {
+        "part_name": "evening",
+        "temp_min": 3,
+        "temp_avg": 4,
+        "temp_max": 5,
+        "wind_speed": 2.1,
+        "wind_gust": 3.3,
+        "wind_dir": "sw",
+        "pressure_mm": 766,
+        "pressure_pa": 1021,
+        "humidity": 48,
+        "prec_mm": 0,
+        "prec_prob": 0,
+        "prec_period": 240,
+        "icon": "skc_n",
+        "condition": "clear",
+        "feels_like": 0,
+        "daytime": "n",
+        "polar": false
+      },
+      {
+        "part_name": "night",
+        "temp_min": 1,
+        "temp_avg": 2,
+        "temp_max": 3,
+        "wind_speed": 2.1,
+        "wind_gust": 3.2,
+        "wind_dir": "sw",
+        "pressure_mm": 766,
+        "pressure_pa": 1020,
+        "humidity": 55,
+        "prec_mm": 0,
+        "prec_prob": 0,
+        "prec_period": 480,
+        "icon": "skc_n",
+        "condition": "clear",
+        "feels_like": -2,
+        "daytime": "n",
+        "polar": false
+      }
+    ]
+  }
+}
