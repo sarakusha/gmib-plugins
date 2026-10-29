@@ -127,6 +127,9 @@ h2 {
   color: #526d77;
   min-width: 0;
 }
+.fields .calendar-start {
+  grid-column: 1;
+}
 input:not([type="checkbox"]):not([type="range"]),
 select,
 textarea {
@@ -189,14 +192,14 @@ textarea:focus {
 }
 .style-row {
   display: grid;
-  grid-template-columns: 1fr 105px 75px 44px;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 85px 44px;
+  gap: 6px 8px;
   align-items: end;
-  margin: 12px 0;
+  margin: 18px 0;
 }
 .style-row strong {
+  grid-column: 1 / -1;
   font-size: 12px;
-  align-self: center;
 }
 .style-row label {
   display: flex;
@@ -330,6 +333,6 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
   .style-row {
-    grid-template-columns: 1fr 80px 70px 40px;
+    grid-template-columns: minmax(0, 1fr) 75px 44px;
   }
 }
