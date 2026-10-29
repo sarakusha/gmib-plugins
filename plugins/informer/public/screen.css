@@ -391,9 +391,14 @@ body.single-line.with-seconds #seconds-wrap {
   min-height: calc(82px * var(--scale));
 }
 .weather-icon {
-  width: calc(70px * var(--scale));
-  height: calc(70px * var(--scale));
+  width: calc(var(--temperature-size) * 1.6 * var(--scale));
+  height: calc(var(--temperature-size) * 1.6 * var(--scale));
   flex: none;
+}
+.weather-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .weather-temp {
   font-family: var(--temperature-font);
@@ -445,9 +450,11 @@ body.single-line.with-seconds #seconds-wrap {
   align-content: start;
 }
 .forecast-item svg {
-  width: calc(var(--forecast-size) * 1.5 * var(--scale));
-  height: calc(var(--forecast-size) * 1.5 * var(--scale));
-  grid-row: span 2;
+  width: calc(var(--forecast-size) * 1.9 * var(--scale));
+  height: calc(var(--forecast-size) * 1.9 * var(--scale));
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  place-self: center;
 }
 .forecast-label {
   font-family: var(--forecast-font);
@@ -539,8 +546,8 @@ body.compact .weather-current {
   gap: calc(5px * var(--scale));
 }
 body.compact .weather-icon {
-  width: calc(32px * var(--scale));
-  height: calc(32px * var(--scale));
+  width: calc(var(--compact-temp-size) * var(--scale));
+  height: calc(var(--compact-temp-size) * var(--scale));
 }
 body.compact .weather-temp {
   font-size: calc(var(--compact-temp-size) * var(--scale));
