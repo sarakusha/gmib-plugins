@@ -134,30 +134,56 @@
                 data-path="clock.timeZone"
                 autocomplete="off" /></label
             ><label
-              >Строк даты<select data-path="date.lines">
-                <option value="1">Одна</option>
-                <option value="2">Две</option>
+              >Дата и время<select data-path="date.lines">
+                <option value="1">В одной строке</option>
+                <option value="2">В отдельных строках</option>
               </select></label
             ><label
-              >Параметры даты (JSON)<textarea
-                rows="3"
-                id="date-options"
-                spellcheck="false"
-              ></textarea>
-            </label>
+              >День недели<select data-date-option="weekday">
+                <option value="">Не показывать</option>
+                <option value="long">Полностью (четверг)</option>
+                <option value="short">Кратко (чт)</option>
+                <option value="narrow">Узко (Ч)</option>
+              </select></label
+            ><label
+              >День<select data-date-option="day">
+                <option value="">Не показывать</option>
+                <option value="numeric">Числом (5)</option>
+                <option value="2-digit">Две цифры (05)</option>
+              </select></label
+            ><label
+              >Месяц<select data-date-option="month">
+                <option value="">Не показывать</option>
+                <option value="numeric">Числом (7)</option>
+                <option value="2-digit">Две цифры (07)</option>
+                <option value="long">Полностью (июля)</option>
+                <option value="short">Кратко (июл.)</option>
+                <option value="narrow">Узко (И)</option>
+              </select></label
+            ><label
+              >Год<select data-date-option="year">
+                <option value="">Не показывать</option>
+                <option value="numeric">Полностью (2026)</option>
+                <option value="2-digit">Две цифры (26)</option>
+              </select></label
+            ><label
+              >Эра<select data-date-option="era">
+                <option value="">Не показывать</option>
+                <option value="long">Полностью (нашей эры)</option>
+                <option value="short">Кратко (н. э.)</option>
+                <option value="narrow">Узко (н. э.)</option>
+              </select></label
+            >
           </div>
           <div class="checks">
             <label
               ><input type="checkbox" data-path="clock.seconds" /> Показывать
               секунды</label
-            ><label
-              ><input type="checkbox" data-path="date.weekday" /> Показывать
-              день недели</label
             >
           </div>
           <p class="hint">
-            Пример: {"day":"numeric","month":"long","year":"numeric"}. Доступны
-            поля даты Intl.DateTimeFormat.
+            Одна строка: «Четверг, 15 июля, 10:12». Две строки: дата и время
+            отдельно. Вид названий и порядок полей зависят от локали.
           </p>
         </section>
         <section

@@ -80,13 +80,36 @@
     if (!response.ok) throw Error(payloadError(data, response.status));
     return data;
   }
+  function expandDateStyle() {
+    const options = draft.date.options;
+    const styles = {
+      full: { weekday: "long", day: "numeric", month: "long", year: "numeric" },
+      long: { day: "numeric", month: "long", year: "numeric" },
+      medium: { day: "numeric", month: "short", year: "numeric" },
+      short: { day: "numeric", month: "numeric", year: "2-digit" },
+    };
+    if (options.dateStyle) {
+      const { dateStyle, ...fields } = options;
+      draft.date.options = { ...styles[dateStyle], ...fields };
+    }
+  }
   function bind() {
+    // Older settings used dateStyle; expose its fields in the same selectors.
+    expandDateStyle();
     document.querySelectorAll("[data-path]").forEach((input) => {
       const value = getPath(input.dataset.path);
       if (input.type === "checkbox") input.checked = Boolean(value);
       else input.value = value;
     });
-    $("date-options").value = JSON.stringify(draft.date.options, null, 2);
+    document.querySelectorAll("[data-date-option]").forEach((input) => {
+      const field = input.dataset.dateOption;
+      input.value =
+        field === "weekday"
+          ? draft.date.weekday
+            ? draft.date.options.weekday || "long"
+            : ""
+          : draft.date.options[field] || "";
+    });
     $("shadow-value").textContent = draft.appearance.shadow;
     $("dim-value").textContent = draft.appearance.dim;
   }
@@ -101,10 +124,11 @@
         value = Number(value);
       setPath(input.dataset.path, value);
     }
-    try {
-      draft.date.options = JSON.parse($("date-options").value);
-    } catch {
-      throw Error("Параметры даты должны быть корректным JSON.");
+    for (const input of document.querySelectorAll("[data-date-option]")) {
+      const field = input.dataset.dateOption;
+      if (field === "weekday") draft.date.weekday = Boolean(input.value);
+      if (input.value) draft.date.options[field] = input.value;
+      else delete draft.date.options[field];
     }
     validate();
   }
@@ -330,7 +354,7 @@
     }
   }
   document
-    .querySelectorAll("[data-path],#date-options")
+    .querySelectorAll("[data-path],[data-date-option]")
     .forEach((input) => input.addEventListener("input", preview));
   $("save").addEventListener("click", async () => {
     try {

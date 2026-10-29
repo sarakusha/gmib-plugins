@@ -203,14 +203,22 @@ body {
     opacity: 0;
   }
 }
+.datetime {
+  width: 100%;
+}
 .date-area {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
   height: calc(46px * var(--scale));
   flex-shrink: 0;
   overflow: hidden;
   text-align: center;
+  font-family: var(--date-font);
+  font-size: calc(var(--date-size) * var(--scale));
+  color: var(--date-color);
 }
-.date-main,
-.date-extra {
+.date-main {
   font-family: var(--date-font);
   font-size: calc(var(--date-size) * var(--scale));
   color: var(--date-color);
@@ -219,7 +227,7 @@ body {
   text-overflow: ellipsis;
   overflow: hidden;
 }
-.date-extra:empty {
+.date-main:empty {
   display: none;
 }
 .weekday {
@@ -233,6 +241,36 @@ body {
 }
 .weekday:empty {
   display: none;
+}
+body.single-line .datetime {
+  width: max-content;
+  margin-left: 50%;
+  margin-top: calc(46px * var(--scale));
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+  transform: translateX(-50%) scale(var(--line-fit, 1));
+  transform-origin: center top;
+  font-family: var(--date-font);
+  font-size: calc(var(--date-size) * var(--scale));
+  color: var(--date-color);
+}
+body.single-line .date-area,
+body.single-line .clock {
+  width: auto;
+  height: auto;
+  flex: none;
+  overflow: visible;
+}
+body.single-line .clock {
+  font-size: calc(var(--inline-clock-size, 19px) * var(--scale));
+}
+body.single-line #hour,
+body.single-line .clock-right {
+  flex: none;
+}
+body.single-line.with-seconds #seconds-wrap {
+  font-size: 1em;
 }
 .weather-pane {
   min-width: 0;

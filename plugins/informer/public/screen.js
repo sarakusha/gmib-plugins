@@ -140,43 +140,20 @@
       };
     }
   }
-  function dateLines(now) {
-    let options = settings.date.options || {};
-    try {
-      const locale = settings.clock.locale,
-        zone = settings.clock.timeZone;
-      const d = new Intl.DateTimeFormat(locale, {
-        ...options,
-        timeZone: zone,
-      }).format(now);
-      const weekday = settings.date.weekday
-        ? new Intl.DateTimeFormat(locale, {
-            timeZone: zone,
-            weekday: "long",
-          }).format(now)
-        : "";
-      if (settings.date.lines === 2 && options.year) {
-        const parts = new Intl.DateTimeFormat(locale, {
-          ...options,
-          timeZone: zone,
-        }).formatToParts(now);
-        const year = parts.find((part) => part.type === "year")?.value;
-        if (
-          year &&
-          parts.filter((part) => part.type !== "literal").length > 1
-        ) {
-          const main = parts
-            .filter((part) => part.type !== "year")
-            .map((part) => part.value)
-            .join("")
-            .replace(/^[,\s.]+|[,\s.]+$/g, "");
-          return { main, extra: year, weekday };
-        }
-      }
-      return { main: d, extra: "", weekday };
-    } catch {
-      return { main: now.toLocaleDateString(), extra: "", weekday: "" };
-    }
+  function fitDateTime() {
+    const line = document.querySelector(".datetime");
+    line.style.setProperty("--line-fit", "1");
+    if (settings.date.lines !== 1) return;
+    const pane = document.querySelector(".time-pane");
+    const style = getComputedStyle(pane);
+    const available =
+      pane.clientWidth -
+      parseFloat(style.paddingLeft) -
+      parseFloat(style.paddingRight);
+    line.style.setProperty(
+      "--line-fit",
+      String(Math.min(1, available / line.scrollWidth)),
+    );
   }
   function updateClock() {
     const now = new Date(),
@@ -187,11 +164,15 @@
     const dayKey = `${new Intl.DateTimeFormat("en-CA", { timeZone: settings.clock.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now)}-${settings.clock.locale}-${JSON.stringify(settings.date)}`;
     if (dayKey !== lastDate) {
       lastDate = dayKey;
-      const d = dateLines(now);
-      $("date-main").textContent = d.main;
-      $("date-extra").textContent = d.extra;
+      const d = InformerDate.formatDate(now, settings.date, settings.clock);
+      $("date-main").textContent = d.calendar;
       $("weekday").textContent = d.weekday;
+      $("date-join").hidden = !(d.calendar && d.weekday);
+      const hasDate = Boolean(d.calendar || d.weekday);
+      document.querySelector(".date-area").hidden = !hasDate;
+      $("time-join").hidden = settings.date.lines !== 1 || !hasDate;
     }
+    fitDateTime();
     updateSky(now);
   }
   // Solar elevation: NOAA fractional-year approximation, recalculated from live system time.
@@ -313,6 +294,11 @@
       `${Math.max(10, tempSize * 0.27)}px`,
     );
 
+    root.setProperty(
+      "--inline-clock-size",
+      `${(s.clock.size / 80) * s.date.size}px`,
+    );
+    document.body.classList.toggle("single-line", settings.date.lines === 1);
     $("seconds-wrap").hidden = !settings.clock.seconds;
     document.body.classList.toggle("with-seconds", settings.clock.seconds);
     lastDate = "";
@@ -483,6 +469,7 @@
   });
   addEventListener("resize", () => {
     layout();
+    fitDateTime();
     render();
   });
   addEventListener("visibilitychange", () => {

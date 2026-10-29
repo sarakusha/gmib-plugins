@@ -11,20 +11,23 @@
     <div class="sky sky-b" aria-hidden="true"></div>
     <main class="display" aria-label="Время и погода">
       <section class="time-pane" aria-label="Часы и дата">
-        <div class="date-area">
-          <div id="date-main" class="date-main"></div>
-          <div id="date-extra" class="date-extra"></div>
-          <div id="weekday" class="weekday"></div>
-        </div>
-        <div class="clock" aria-label="Текущее время">
-          <span id="hour">--</span><span class="colon">:</span
-          ><span class="clock-right"
-            ><span id="minute">--</span
-            ><span id="seconds-wrap" hidden
-              ><span class="seconds-colon">:</span
-              ><span id="second">--</span></span
-            ></span
-          >
+        <div class="datetime">
+          <div class="date-area">
+            <span id="weekday" class="weekday"></span
+            ><span id="date-join" hidden>,&nbsp;</span
+            ><span id="date-main" class="date-main"></span>
+          </div>
+          <span id="time-join" hidden>,&nbsp;</span>
+          <div class="clock" aria-label="Текущее время">
+            <span id="hour">--</span><span class="colon">:</span
+            ><span class="clock-right"
+              ><span id="minute">--</span
+              ><span id="seconds-wrap" hidden
+                ><span class="seconds-colon">:</span
+                ><span id="second">--</span></span
+              ></span
+            >
+          </div>
         </div>
       </section>
       <section class="weather-pane" aria-label="Погода">
@@ -34,6 +37,7 @@
         </div>
       </section>
     </main>
+    <script src="date-format.js"></script>
     <script src="screen.js"></script>
   </body>
 </html>
