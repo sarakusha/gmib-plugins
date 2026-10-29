@@ -314,6 +314,8 @@
       settings.layout.mode === "compact" ||
       (settings.layout.mode === "auto" &&
         w < Math.max(settings.layout.leftWidth + 220, 520));
+    clearTimeout(slideTimer);
+    $("weather-slide").classList.remove("out");
     document.body.classList.toggle("compact", compact);
     document.documentElement.style.setProperty(
       "--scale",
@@ -359,31 +361,45 @@
         : temp(Number.isFinite(f.tempMax) ? f.tempMax : f.tempMin);
     return `<div class="forecast-item">${icon(f.condition, f.daytime)}<span class="forecast-label">${label}</span><span class="forecast-temp">${t}</span></div>`;
   }
+  function metrics(weather) {
+    if (!weather) return "";
+    const angle = InformerWeather.windAngle(weather.windDir);
+    const direction = weather.windDir
+      ? `${angle === null ? "" : `<img class="wind-direction" src="assets/icons/wind-direction.svg" alt="" aria-hidden="true" style="transform:rotate(${angle}deg)">`}<span>${windName(weather.windDir)}</span>`
+      : "";
+    const detail = (name, asset, value, extra = "") =>
+      `<div class="detail-reading" role="group" aria-label="${name}" title="${name}"><img class="detail-icon" src="assets/icons/${asset}.svg" alt="" aria-hidden="true"><span class="detail-value">${value}</span>${extra}</div>`;
+    return `<div class="detail-grid">${Number.isFinite(weather.windSpeed) ? detail("Ветер", "wind", `${weather.windSpeed} м/с`, direction) : ""}${Number.isFinite(weather.pressureMm) ? detail("Давление", "pressure", `${weather.pressureMm} мм рт.ст.`) : ""}${Number.isFinite(weather.humidity) ? detail("Влажность", "humidity", `${weather.humidity}%`) : ""}</div>`;
+  }
   function render() {
     const weather = snapshot?.weather;
+    const compact = document.body.classList.contains("compact");
     const slides = availableSlides(),
-      kind = slides[slide % slides.length];
+      kind = !weather
+        ? "empty"
+        : compact
+          ? slides[slide % slides.length]
+          : "current";
+    $("clock-metrics").innerHTML = compact
+      ? ""
+      : `<div class="weather-content">${metrics(weather)}</div>`;
     let html = "";
     if (kind === "empty")
       html = '<div class="empty-weather">Погода недоступна</div>';
     if (kind === "current")
-      html = `<div class="weather-caption">Сейчас</div><div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${document.body.classList.contains("compact") || !settings.slides.forecast ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
-    if (kind === "details") {
-      const angle = InformerWeather.windAngle(weather.windDir);
-      const direction = weather.windDir
-        ? `${angle === null ? "" : `<img class="wind-direction" src="assets/icons/wind-direction.svg" alt="" aria-hidden="true" style="transform:rotate(${angle}deg)">`}<span>${windName(weather.windDir)}</span>`
-        : "";
-      const detail = (name, asset, value, extra = "") =>
-        `<div class="detail-reading" role="group" aria-label="${name}" title="${name}"><img class="detail-icon" src="assets/icons/${asset}.svg" alt="" aria-hidden="true"><span class="detail-value">${value}</span>${extra}</div>`;
-      html = `<div class="weather-caption">Погодные условия</div><div class="detail-grid">${Number.isFinite(weather.windSpeed) ? detail("Ветер", "wind", `${weather.windSpeed} м/с`, direction) : ""}${Number.isFinite(weather.pressureMm) ? detail("Давление", "pressure", `${weather.pressureMm} мм рт.ст.`) : ""}${Number.isFinite(weather.humidity) ? detail("Влажность", "humidity", `${weather.humidity}%`) : ""}</div>`;
-    }
+      html = `<div class="weather-caption">Сейчас</div><div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
+    if (kind === "details")
+      html = `<div class="weather-caption">Погодные условия</div>${metrics(weather)}`;
     if (kind === "forecast")
       html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${weather.forecast.slice(0, 2).map(forecastItem).join("")}</div>`;
     $("weather-slide").innerHTML = `<div class="weather-content">${html}</div>`;
     fitWeatherContent();
+    if (!compact) fitContent($("clock-metrics"));
   }
   function fitWeatherContent() {
-    const pane = $("weather-slide");
+    fitContent($("weather-slide"));
+  }
+  function fitContent(pane) {
     const content = pane.querySelector(".weather-content");
     if (!content || !content.offsetWidth || !content.offsetHeight) return;
     const natural = content.getBoundingClientRect();
@@ -393,11 +409,13 @@
       pane.clientHeight / natural.height,
     );
     content.style.setProperty("--weather-fit", String(fit));
-    content.style.marginTop = document.body.classList.contains("compact")
-      ? `${Math.max(0, (pane.clientHeight - natural.height * fit) / 2)}px`
-      : "0";
+    content.style.marginTop =
+      document.body.classList.contains("compact") || pane.id === "clock-metrics"
+        ? `${Math.max(0, (pane.clientHeight - natural.height * fit) / 2)}px`
+        : "0";
   }
   function advance() {
+    if (!document.body.classList.contains("compact")) return;
     const count = availableSlides().length;
     if (count < 2) return;
     const now = Date.now();

@@ -610,3 +610,35 @@ body.compact .weather-temp {
 body.compact .weather-sub {
   white-space: nowrap;
 }
+
+/* Keep the clock in the same position when switching between layouts. */
+.clock-metrics {
+  position: absolute;
+  top: calc(141px * var(--scale));
+  bottom: calc(8px * var(--scale));
+  left: calc(18px * var(--scale));
+  right: calc(18px * var(--scale));
+  overflow: hidden;
+}
+.time-pane {
+  position: relative;
+}
+.clock-metrics .detail-grid {
+  margin: 0;
+  gap: calc(8px * var(--scale));
+}
+body.compact .clock-metrics {
+  display: none;
+}
+body:not(.compact) .weather-slide > .weather-content {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+body:not(.compact) .weather-current {
+  flex: 1;
+}
+body:not(.compact) .forecast-row {
+  flex: none;
+  margin-top: calc(12px * var(--scale));
+}
