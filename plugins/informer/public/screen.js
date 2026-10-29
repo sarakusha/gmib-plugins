@@ -238,35 +238,25 @@
         ? "dusk"
         : "night";
   }
-  function weatherKind(c) {
-    if (!c) return "clear";
-    if (c.includes("snow") || c === "hail") return "snow";
-    if (c.includes("thunder")) return "storm";
-    if (c.includes("rain") || c === "drizzle" || c === "showers") return "rain";
-    if (c.includes("cloud") || c === "overcast") return "cloud";
-    return "clear";
-  }
   function updateSky(now) {
     const time = timeOfDay(now);
+    // Keep the saved dusk setting compatible; the bundled assets call it dawn.
+    const tod = time === "dusk" ? "dawn" : time;
     const condition = snapshot?.weather?.condition;
     const backdrop = settings.appearance.backdrop || "gradient";
     const cover = InformerWeather.cloudCover(condition);
-    const key = `${time}/${weatherKind(condition)}/${backdrop}/${cover}`;
+    const key = `${tod}/${backdrop}/${cover}`;
     if (key === lastSky) return;
     lastSky = key;
     skyIndex = 1 - skyIndex;
     const active = document.querySelector(skyIndex ? ".sky-b" : ".sky-a");
     const inactive = document.querySelector(skyIndex ? ".sky-a" : ".sky-b");
-    const [tod, kind] = key.split("/");
     active.className = [
-      ...new Set([
-        "sky",
-        skyIndex ? "sky-b" : "sky-a",
-        backdrop,
-        tod,
-        kind,
-        cover,
-      ]),
+      "sky",
+      skyIndex ? "sky-b" : "sky-a",
+      backdrop,
+      tod,
+      cover,
     ].join(" ");
     active.style.opacity = "1";
     inactive.style.opacity = "0";

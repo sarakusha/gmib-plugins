@@ -67,16 +67,14 @@ body {
 .sky.day {
   background: linear-gradient(160deg, #4686ab, #78b2c1 58%, #bdcfb3);
 }
-.sky.dusk {
+.sky.dawn {
   background: linear-gradient(155deg, #273958, #9a6880 54%, #d7a377);
 }
 .sky.night {
   background: linear-gradient(155deg, #081629, #1b3554 59%, #36516a);
 }
-.sky.neutral {
-  background: linear-gradient(150deg, #18364b, #3e6678);
-}
-.sky.cloud:before {
+.sky.cloudy:before,
+.sky.partly:before {
   background:
     radial-gradient(
       ellipse at 72% 10%,
@@ -84,45 +82,6 @@ body {
       transparent 50%
     ),
     linear-gradient(105deg, rgba(4, 15, 32, 0.53), transparent 66%);
-}
-.sky.rain:before {
-  background:
-    repeating-linear-gradient(
-      112deg,
-      transparent 0 20px,
-      rgba(217, 234, 239, 0.12) 21px 22px,
-      transparent 23px 39px
-    ),
-    linear-gradient(105deg, rgba(4, 15, 32, 0.65), rgba(20, 46, 70, 0.18));
-}
-.sky.snow:before {
-  background:
-    radial-gradient(
-      circle at 74% 28%,
-      rgba(246, 251, 255, 0.82) 0 2px,
-      transparent 3px
-    ),
-    radial-gradient(
-      circle at 90% 65%,
-      rgba(246, 251, 255, 0.72) 0 2px,
-      transparent 3px
-    ),
-    radial-gradient(
-      circle at 53% 71%,
-      rgba(246, 251, 255, 0.65) 0 2px,
-      transparent 3px
-    ),
-    linear-gradient(105deg, rgba(4, 15, 32, 0.56), transparent 66%);
-}
-.sky.storm:before {
-  background:
-    linear-gradient(
-      117deg,
-      transparent 61%,
-      rgba(255, 242, 194, 0.42) 62%,
-      transparent 64%
-    ),
-    linear-gradient(105deg, rgba(4, 15, 32, 0.7), transparent 66%);
 }
 .sky.photo {
   background-position: center;
@@ -138,13 +97,13 @@ body {
 .sky.photo.day.cloudy {
   background-image: url("assets/backgrounds/day-cloudy.jpg");
 }
-.sky.photo.dusk.clear {
+.sky.photo.dawn.clear {
   background-image: url("assets/backgrounds/dawn-clear.jpg");
 }
-.sky.photo.dusk.partly {
+.sky.photo.dawn.partly {
   background-image: url("assets/backgrounds/dawn-partly.jpg");
 }
-.sky.photo.dusk.cloudy {
+.sky.photo.dawn.cloudy {
   background-image: url("assets/backgrounds/dawn-cloudy.jpg");
 }
 .sky.photo.night.clear {
@@ -156,38 +115,8 @@ body {
 .sky.photo.night.cloudy {
   background-image: url("assets/backgrounds/night-cloudy.jpg");
 }
-.sky.photo:before,
-.sky.photo.cloud:before {
+.sky.photo:before {
   background: none;
-}
-.sky.photo.rain:before {
-  background: repeating-linear-gradient(
-    112deg,
-    transparent 0 20px,
-    rgba(217, 234, 239, 0.12) 21px 22px,
-    transparent 23px 39px
-  );
-}
-.sky.photo.snow:before {
-  background:
-    radial-gradient(
-      circle at 74% 28%,
-      rgba(246, 251, 255, 0.82) 0 2px,
-      transparent 3px
-    ),
-    radial-gradient(
-      circle at 90% 65%,
-      rgba(246, 251, 255, 0.72) 0 2px,
-      transparent 3px
-    );
-}
-.sky.photo.storm:before {
-  background: linear-gradient(
-    117deg,
-    transparent 61%,
-    rgba(255, 242, 194, 0.42) 62%,
-    transparent 64%
-  );
 }
 .display {
   display: flex;
