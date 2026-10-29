@@ -7,11 +7,15 @@
   --weekday-size: 16px;
   --temperature-size: 44px;
   --weather-size: 18px;
+  --forecast-size: 18px;
+  --metrics-size: 14px;
   --clock-color: #fff;
   --date-color: #fff;
   --weekday-color: #d6e9f4;
   --temperature-color: #fff;
   --weather-color: #fff;
+  --forecast-color: #fff;
+  --metrics-color: #fff;
   --shade: 0.15;
   --shadow: 0.6;
   --outline: 0px;
@@ -20,6 +24,8 @@
   --weekday-font: Arial, Helvetica, sans-serif;
   --temperature-font: Arial, Helvetica, sans-serif;
   --weather-font: Arial, Helvetica, sans-serif;
+  --forecast-font: Arial, Helvetica, sans-serif;
+  --metrics-font: Arial, Helvetica, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -352,6 +358,14 @@ body.single-line.with-seconds #seconds-wrap {
     transform 0.34s ease;
   overflow: hidden;
 }
+.weather-content {
+  width: max-content;
+  min-width: 100%;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%) scale(var(--weather-fit, 1));
+  transform-origin: center top;
+}
 .weather-slide.out {
   opacity: 0;
   transform: translateY(5px);
@@ -374,7 +388,7 @@ body.single-line.with-seconds #seconds-wrap {
   align-items: center;
   justify-content: center;
   gap: calc(10px * var(--scale));
-  height: calc(82px * var(--scale));
+  min-height: calc(82px * var(--scale));
 }
 .weather-icon {
   width: calc(70px * var(--scale));
@@ -400,7 +414,7 @@ body.single-line.with-seconds #seconds-wrap {
 .weather-sub {
   font-family: var(--weather-font);
   color: var(--weather-color);
-  font-size: calc(12px * var(--scale));
+  font-size: calc(var(--weather-size) * 0.75 * var(--scale));
   opacity: 0.85;
   line-height: 1.35;
   margin-top: calc(3px * var(--scale));
@@ -417,7 +431,7 @@ body.single-line.with-seconds #seconds-wrap {
 .forecast-row {
   display: flex;
   gap: calc(7px * var(--scale));
-  height: calc(58px * var(--scale));
+  min-height: calc(58px * var(--scale));
   margin-top: calc(4px * var(--scale));
 }
 .forecast-item {
@@ -426,28 +440,28 @@ body.single-line.with-seconds #seconds-wrap {
   border-top: 1px solid rgba(255, 255, 255, 0.34);
   padding-top: calc(5px * var(--scale));
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto;
   column-gap: calc(6px * var(--scale));
   align-content: start;
 }
 .forecast-item svg {
-  width: calc(27px * var(--scale));
-  height: calc(27px * var(--scale));
+  width: calc(var(--forecast-size) * 1.5 * var(--scale));
+  height: calc(var(--forecast-size) * 1.5 * var(--scale));
   grid-row: span 2;
 }
 .forecast-label {
-  font-family: var(--weather-font);
-  color: var(--weather-color);
-  font-size: calc(var(--weather-label-size) * var(--scale));
+  font-family: var(--forecast-font);
+  color: var(--forecast-color);
+  font-size: calc(var(--forecast-size) * var(--scale));
+  line-height: 1.1;
   opacity: 0.84;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .forecast-temp {
-  font-family: var(--temperature-font);
-  color: var(--temperature-color);
-  font-size: calc(var(--forecast-temp-size) * var(--scale));
+  font-family: var(--forecast-font);
+  color: var(--forecast-color);
+  font-size: calc(var(--forecast-size) * 1.05 * var(--scale));
+  line-height: 1.1;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -455,26 +469,16 @@ body.single-line.with-seconds #seconds-wrap {
   display: flex;
   width: max-content;
   min-width: 100%;
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%) scale(var(--detail-fit, 1));
-  transform-origin: center center;
   align-items: center;
   justify-content: center;
   text-align: center;
   gap: calc(12px * var(--scale));
   margin-top: calc(11px * var(--scale));
 }
-.detail-label {
-  font-family: var(--weather-font);
-  color: var(--weather-color);
-  font-size: calc(var(--weather-label-size) * var(--scale));
-  opacity: 0.75;
-}
 .detail-value {
-  font-family: var(--weather-font);
-  color: var(--weather-color);
-  font-size: calc(var(--detail-value-size) * var(--scale));
+  font-family: var(--metrics-font);
+  color: var(--metrics-color);
+  font-size: inherit;
   font-variant-numeric: tabular-nums;
 }
 .detail-reading {
@@ -485,9 +489,9 @@ body.single-line.with-seconds #seconds-wrap {
   gap: calc(4px * var(--scale));
   min-width: 0;
   white-space: nowrap;
-  font-family: var(--weather-font);
-  font-size: calc(var(--detail-value-size) * var(--scale));
-  color: var(--weather-color);
+  font-family: var(--metrics-font);
+  font-size: calc(var(--metrics-size) * var(--scale));
+  color: var(--metrics-color);
 }
 .detail-icon,
 .wind-direction {
@@ -531,7 +535,7 @@ body.no-source .weather-slide {
   height: 100%;
 }
 body.compact .weather-current {
-  height: calc(33px * var(--scale));
+  min-height: 0;
   gap: calc(5px * var(--scale));
 }
 body.compact .weather-icon {
@@ -541,47 +545,22 @@ body.compact .weather-icon {
 body.compact .weather-temp {
   font-size: calc(var(--compact-temp-size) * var(--scale));
 }
-body.compact .weather-condition {
-  font-size: calc(var(--compact-weather-size) * var(--scale));
-}
-body.compact .weather-sub,
-body.compact .weather-caption {
-  font-family: var(--weather-font);
-  color: var(--weather-color);
-  font-size: calc(9px * var(--scale));
+body.compact .weather-sub {
   margin: 0;
 }
 body.compact .forecast-row {
-  height: calc(27px * var(--scale));
+  min-height: 0;
   margin: 0;
 }
 body.compact .forecast-item {
   padding-top: 0;
   border: 0;
 }
-body.compact .forecast-item svg {
-  width: calc(25px * var(--scale));
-  height: calc(25px * var(--scale));
-}
-body.compact .forecast-label {
-  font-size: calc(var(--compact-weather-size) * var(--scale));
-}
-body.compact .forecast-temp {
-  font-size: calc(var(--compact-forecast-temp-size) * var(--scale));
-}
 body.compact .detail-grid {
   margin: 0;
-  height: 100%;
   gap: calc(8px * var(--scale));
 }
-body.compact .detail-label {
-  font-size: calc(var(--compact-weather-size) * var(--scale));
-}
-body.compact .detail-value {
-  font-size: calc(var(--compact-detail-size) * var(--scale));
-}
 body.compact .detail-reading {
-  font-size: calc(var(--compact-detail-size) * var(--scale));
   line-height: 1.1;
   gap: calc(3px * var(--scale));
 }
@@ -621,12 +600,6 @@ body.compact .weather-current > div:last-child {
 body.compact .weather-temp {
   grid-row: span 2;
 }
-body.compact .weather-condition {
-  font-size: calc(var(--compact-weather-size) * var(--scale));
-}
 body.compact .weather-sub {
   white-space: nowrap;
-  font-family: var(--weather-font);
-  color: var(--weather-color);
-  font-size: calc(var(--compact-weather-size) * 0.75 * var(--scale));
 }

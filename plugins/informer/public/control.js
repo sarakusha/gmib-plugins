@@ -23,6 +23,8 @@
       weekday: { font: "sans", size: 16, color: "#d6e9f4" },
       temperature: { font: "sans", size: 44, color: "#ffffff" },
       weather: { font: "sans", size: 18, color: "#ffffff" },
+      forecast: { font: "sans", size: 18, color: "#ffffff" },
+      metrics: { font: "sans", size: 14, color: "#ffffff" },
     },
     slides: { seconds: 8, current: true, details: true, forecast: true },
   };
@@ -44,8 +46,10 @@
     clock: "Время",
     date: "Дата",
     weekday: "День недели",
-    temperature: "Температура",
-    weather: "Погодная подпись",
+    temperature: "Текущая температура",
+    weather: "Погодные условия",
+    forecast: "Прогноз",
+    metrics: "Метеопоказатели",
   };
   const styleRoot = $("style-fields");
   for (const [key, label] of Object.entries(styleLabels)) {
@@ -292,12 +296,29 @@
     snapshot = data;
     settingsSupported =
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
-      typeof data.settings.appearance?.showSource === "boolean";
+      typeof data.settings.appearance?.showSource === "boolean" &&
+      Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
     $("runtime-notice").hidden = settingsSupported;
     $("save").disabled = !settingsSupported;
     if (!keepDraft) {
       draft = structuredClone(data.settings);
       draft.appearance = { ...defaults.appearance, ...draft.appearance };
+      for (const key of ["forecast", "metrics"]) {
+        if (!draft.styles[key])
+          draft.styles[key] = {
+            ...draft.styles.weather,
+            size:
+              key === "forecast"
+                ? draft.styles.weather.size
+                : Math.min(
+                    160,
+                    Math.max(
+                      8,
+                      Math.round((draft.styles.weather.size * 14) / 18),
+                    ),
+                  ),
+          };
+      }
       bind();
     }
     updateCache();
@@ -361,7 +382,15 @@
       if (
         path === "settings" &&
         (data?.settings?.appearance?.backdrop !== body.appearance.backdrop ||
-          data?.settings?.appearance?.showSource !== body.appearance.showSource)
+          data?.settings?.appearance?.showSource !==
+            body.appearance.showSource ||
+          ["forecast", "metrics"].some((key) =>
+            ["font", "size", "color"].some(
+              (field) =>
+                data?.settings?.styles?.[key]?.[field] !==
+                body.styles[key][field],
+            ),
+          ))
       ) {
         $("runtime-notice").hidden = false;
         settingsSupported = false;

@@ -20,7 +20,13 @@ function validateSettings(value) {
     if (!object(value[key])) fail(`Не задана группа ${key}`);
     for (const field of Object.keys(result[key])) {
       if (key === 'styles') {
-        const style = value.styles[field];
+        let style = value.styles[field];
+        // Older saved settings used the weather style for all weather text.
+        // Only absent new groups migrate; explicitly malformed styles remain errors.
+        if (['forecast', 'metrics'].includes(field) && !Object.hasOwn(value.styles, field) && object(value.styles.weather)) {
+          style = { ...value.styles.weather };
+          if (field === 'metrics') style.size = Math.min(160, Math.max(8, Math.round(style.size * 14 / 18)));
+        }
         if (!object(style) || !['sans', 'mono', 'serif'].includes(style.font) ||
             !number(style.size, 8, 160) || !/^#[0-9a-f]{6}$/i.test(style.color)) fail(`Некорректное оформление: ${field}`);
         result.styles[field] = {font: style.font, size: style.size, color: style.color};

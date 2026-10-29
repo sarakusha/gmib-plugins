@@ -1,10 +1,20 @@
 {
-  "layout": { "mode": "auto", "leftWidth": 320 },
-  "clock": { "seconds": false, "locale": "ru-RU", "timeZone": "Europe/Moscow" },
+  "layout": {
+    "mode": "auto",
+    "leftWidth": 320
+  },
+  "clock": {
+    "seconds": false,
+    "locale": "ru-RU",
+    "timeZone": "Europe/Moscow"
+  },
   "date": {
     "lines": 2,
     "weekday": true,
-    "options": { "day": "numeric", "month": "long" }
+    "options": {
+      "day": "numeric",
+      "month": "long"
+    }
   },
   "appearance": {
     "theme": "auto",
@@ -15,11 +25,46 @@
     "outline": 0
   },
   "styles": {
-    "clock": { "font": "sans", "size": 80, "color": "#ffffff" },
-    "date": { "font": "sans", "size": 19, "color": "#ffffff" },
-    "weekday": { "font": "sans", "size": 16, "color": "#d6e9f4" },
-    "temperature": { "font": "sans", "size": 44, "color": "#ffffff" },
-    "weather": { "font": "sans", "size": 18, "color": "#ffffff" }
+    "clock": {
+      "font": "sans",
+      "size": 80,
+      "color": "#ffffff"
+    },
+    "date": {
+      "font": "sans",
+      "size": 19,
+      "color": "#ffffff"
+    },
+    "weekday": {
+      "font": "sans",
+      "size": 16,
+      "color": "#d6e9f4"
+    },
+    "temperature": {
+      "font": "sans",
+      "size": 44,
+      "color": "#ffffff"
+    },
+    "weather": {
+      "font": "sans",
+      "size": 18,
+      "color": "#ffffff"
+    },
+    "forecast": {
+      "font": "sans",
+      "size": 18,
+      "color": "#ffffff"
+    },
+    "metrics": {
+      "font": "sans",
+      "size": 14,
+      "color": "#ffffff"
+    }
   },
-  "slides": { "seconds": 8, "current": true, "details": true, "forecast": true }
+  "slides": {
+    "seconds": 8,
+    "current": true,
+    "details": true,
+    "forecast": true
+  }
 }

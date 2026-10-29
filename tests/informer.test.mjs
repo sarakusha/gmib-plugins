@@ -104,6 +104,71 @@ test('backdrop migration preserves saved settings and accepts full dimming', () 
   assert.throws(() => model.validateSettings(restored));
 });
 
+test('legacy weather styles migrate without changing unrelated preferences or the input', async () => {
+  const legacy = structuredClone(model.defaults);
+  delete legacy.styles.forecast;
+  delete legacy.styles.metrics;
+  legacy.styles.weather = { font: 'serif', size: 31, color: '#aBc123' };
+  legacy.clock.timeZone = 'UTC';
+  legacy.layout.leftWidth = 450;
+  legacy.slides.forecast = false;
+  const before = structuredClone(legacy);
+  const migrated = model.validateSettings(legacy);
+  assert.deepEqual(migrated.styles.forecast, legacy.styles.weather);
+  assert.deepEqual(migrated.styles.metrics, { font: 'serif', size: 24, color: '#aBc123' });
+  const expected = structuredClone(legacy);
+  expected.styles.forecast = migrated.styles.forecast;
+  expected.styles.metrics = migrated.styles.metrics;
+  assert.deepEqual(migrated, expected);
+  assert.deepEqual(legacy, before);
+  for (const [size, metricsSize] of [[8, 8], [160, 124]]) {
+    legacy.styles.weather.size = size;
+    assert.equal(model.validateSettings(legacy).styles.metrics.size, metricsSize);
+  }
+  const h = host({ version: 1, settings: before }); await h.activate();
+  assert.deepEqual((await h.call('GET', '/state')).settings, migrated);
+  await h.call('PUT', '/settings', migrated);
+  const restarted = host(h.data.get(KEY)); await restarted.activate();
+  assert.deepEqual((await restarted.call('GET', '/state')).settings, migrated);
+});
+
+test('independent weather, forecast, and metric styles survive saving, reading, and restart', async () => {
+  const h = host(); await h.activate();
+  const settings = structuredClone(model.defaults);
+  settings.styles.weather = { font: 'serif', size: 23, color: '#112233' };
+  settings.styles.forecast = { font: 'mono', size: 37, color: '#abcdef' };
+  settings.styles.metrics = { font: 'sans', size: 12, color: '#FEDCBA' };
+  assert.deepEqual((await h.call('PUT', '/settings', settings)).settings, settings);
+  assert.deepEqual((await h.call('GET', '/state')).settings, settings);
+  const restarted = host(h.data.get(KEY)); await restarted.activate();
+  assert.deepEqual((await restarted.call('GET', '/state')).settings, settings);
+});
+
+test('explicit invalid new styles and missing required weather styles are rejected', async () => {
+  const h = host(); await h.activate();
+  for (const field of ['forecast', 'metrics']) {
+    for (const invalid of [undefined, null, {}, { font: 'other', size: 18, color: '#ffffff' },
+      { font: 'sans', size: 7, color: '#ffffff' }, { font: 'sans', size: 161, color: '#ffffff' },
+      { font: 'sans', size: NaN, color: '#ffffff' }, { font: 'sans', size: 18, color: 'white' }]) {
+      const settings = structuredClone(model.defaults);
+      settings.styles[field] = invalid;
+      assert.throws(() => model.validateSettings(settings), new RegExp(field));
+      assert.equal((await h.call('PUT', '/settings', settings)).status, 422);
+    }
+    const settings = structuredClone(model.defaults);
+    delete settings.styles[field];
+    const other = field === 'forecast' ? 'metrics' : 'forecast';
+    settings.styles[other] = { font: 'mono', size: 60, color: '#123456' };
+    assert.deepEqual(model.validateSettings(settings).styles[other], settings.styles[other]);
+  }
+  const settings = structuredClone(model.defaults);
+  delete settings.styles.weather;
+  delete settings.styles.forecast;
+  delete settings.styles.metrics;
+  assert.throws(() => model.validateSettings(settings), /weather/);
+  assert.deepEqual((await h.call('GET', '/state')).settings, model.defaults);
+});
+
 test('sky backdrop survives saving, state refresh, and backend restart', async () => {
   const h = host(); await h.activate();
   const settings = structuredClone(model.defaults);

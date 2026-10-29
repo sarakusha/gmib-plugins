@@ -23,6 +23,8 @@
       weekday: { font: "sans", size: 16, color: "#d6e9f4" },
       temperature: { font: "sans", size: 44, color: "#ffffff" },
       weather: { font: "sans", size: 18, color: "#ffffff" },
+      forecast: { font: "sans", size: 18, color: "#ffffff" },
+      metrics: { font: "sans", size: 14, color: "#ffffff" },
     },
     slides: { seconds: 8, current: true, details: true, forecast: true },
   };
@@ -63,10 +65,10 @@
   const windName = (value) =>
     windDirections[String(value || "").toLowerCase()] || text(value);
   const parts = {
-    day: "Днём",
-    evening: "Вечером",
-    night: "Ночью",
-    morning: "Утром",
+    day: "День",
+    evening: "Вечер",
+    night: "Ночь",
+    morning: "Утро",
   };
   let snapshot = null,
     settings = DEFAULT,
@@ -287,35 +289,10 @@
     );
     root.setProperty("--shadow", String(settings.appearance.shadow));
     root.setProperty("--outline", `${settings.appearance.outline}px`);
-    const weatherSize = s.weather?.size || DEFAULT.styles.weather.size;
     const tempSize = s.temperature?.size || DEFAULT.styles.temperature.size;
-    root.setProperty(
-      "--weather-label-size",
-      `${Math.max(9, weatherSize * 0.61)}px`,
-    );
-    root.setProperty(
-      "--detail-value-size",
-      `${Math.max(13, weatherSize * 1.1)}px`,
-    );
-    root.setProperty(
-      "--forecast-temp-size",
-      `${Math.max(12, tempSize * 0.34)}px`,
-    );
-    root.setProperty(
-      "--compact-weather-size",
-      `${Math.max(9, weatherSize * 0.67)}px`,
-    );
-    root.setProperty(
-      "--compact-detail-size",
-      `${Math.max(11, weatherSize * 0.72)}px`,
-    );
     root.setProperty(
       "--compact-temp-size",
       `${Math.min(40, Math.max(20, tempSize * 0.72))}px`,
-    );
-    root.setProperty(
-      "--compact-forecast-temp-size",
-      `${Math.max(10, tempSize * 0.27)}px`,
     );
 
     root.setProperty(
@@ -375,7 +352,7 @@
     return a.length ? a : ["empty"];
   }
   function forecastItem(f) {
-    const label = `${parts[f.part] || "Прогноз"}${f.date ? " · " + new Intl.DateTimeFormat(settings.clock.locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${f.date}T12:00:00Z`)) : ""}`;
+    const label = parts[f.part] || "Прогноз";
     const t =
       Number.isFinite(f.tempMin) && Number.isFinite(f.tempMax)
         ? `${temp(f.tempMin)}…${temp(f.tempMax)}`
@@ -402,15 +379,23 @@
     }
     if (kind === "forecast")
       html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${weather.forecast.slice(0, 2).map(forecastItem).join("")}</div>`;
-    $("weather-slide").innerHTML = html;
-    const detailRow = document.querySelector(".detail-grid");
-    if (detailRow)
-      detailRow.style.setProperty(
-        "--detail-fit",
-        String(
-          Math.min(1, $("weather-slide").clientWidth / detailRow.scrollWidth),
-        ),
-      );
+    $("weather-slide").innerHTML = `<div class="weather-content">${html}</div>`;
+    fitWeatherContent();
+  }
+  function fitWeatherContent() {
+    const pane = $("weather-slide");
+    const content = pane.querySelector(".weather-content");
+    if (!content || !content.offsetWidth || !content.offsetHeight) return;
+    const natural = content.getBoundingClientRect();
+    const fit = Math.min(
+      1,
+      pane.clientWidth / natural.width,
+      pane.clientHeight / natural.height,
+    );
+    content.style.setProperty("--weather-fit", String(fit));
+    content.style.marginTop = document.body.classList.contains("compact")
+      ? `${Math.max(0, (pane.clientHeight - natural.height * fit) / 2)}px`
+      : "0";
   }
   function advance() {
     const count = availableSlides().length;
