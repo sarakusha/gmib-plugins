@@ -326,7 +326,7 @@ body.single-line.with-seconds #seconds-wrap {
 .weather-footer {
   position: absolute;
   right: calc(10px * var(--scale));
-  bottom: calc(1px * var(--scale));
+  top: calc(1px * var(--scale));
   z-index: 1;
   pointer-events: none;
   display: flex;
@@ -498,6 +498,8 @@ body.compact .weather-slide {
   height: 100%;
 }
 body.compact .weather-footer {
+  top: auto;
+  bottom: calc(1px * var(--scale));
   font-size: calc(8px * var(--scale));
 }
 body.compact .weather-current {
