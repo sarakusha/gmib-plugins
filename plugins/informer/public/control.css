@@ -446,3 +446,14 @@ textarea:focus {
 .weather-key-invalid .weather-key-status {
   color: #4e5d64;
 }
+
+.page-source {
+  margin-bottom: 20px;
+}
+.page-source .fields {
+  margin-top: 14px;
+}
+
+.page-source .fields > label:first-child {
+  grid-column: 1 / -1;
+}

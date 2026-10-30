@@ -11,6 +11,10 @@ const {
   poolSignature,
 } = require("./weather-keys.cjs");
 const { requestUrl, adaptResponse } = require("./weather-providers.cjs");
+const {
+  pageCacheAt,
+  createPageService,
+} = require("./weather-page-service.cjs");
 
 // Store a usable test response through an allowlist, never arbitrary provider fields.
 function testResponse(weather) {
@@ -25,6 +29,7 @@ function testResponse(weather) {
       condition: part.condition,
       daytime: part.daytime,
       prec_prob: part.precipitationProbability,
+      ...(part.iconUrl ? { iconUrl: part.iconUrl } : {}),
     });
   }
   const forecasts = [...groups.values()];
@@ -46,6 +51,7 @@ function testResponse(weather) {
       wind_dir: weather.windDir,
       pressure_mm: weather.pressureMm,
       humidity: weather.humidity,
+      ...(weather.iconUrl ? { iconUrl: weather.iconUrl } : {}),
     },
     forecasts,
   };
@@ -65,6 +71,14 @@ function createWeatherService({
   let timer = null,
     disposed = false,
     controller = null;
+  const pageService = createPageService({
+    getRecord,
+    persist,
+    request,
+    now,
+    isDisposed: () => disposed,
+    testResponse,
+  });
   function entries(record, usage, at) {
     return record.source.keys.map((key) => {
       const hash = key.apiKey ? fingerprint(key.apiKey) : null;
@@ -127,6 +141,7 @@ function createWeatherService({
         keys,
         dailyLimit: keys.reduce((sum, key) => sum + key.dailyLimit, 0),
         hasApiKey,
+        page: { ...record.source.page },
       },
       cache: {
         mode: record.source.useLastResponse ? "frozen" : "live",
@@ -139,6 +154,18 @@ function createWeatherService({
           !record.source.useLastResponse && hasApiKey
             ? dueAt(record, usage, at)
             : null,
+        nextUpdateAt: record.source.useLastResponse
+          ? null
+          : Math.min(
+                hasApiKey ? dueAt(record, usage, at) : Infinity,
+                pageService.dueAt(record, at),
+              ) === Infinity
+            ? null
+            : Math.min(
+                hasApiKey ? dueAt(record, usage, at) : Infinity,
+                pageService.dueAt(record, at),
+              ),
+        page: pageService.state(record, at),
         lastAttemptAt: usage.lastAttemptAt,
         fetchedAt: record.weather.fetchedAt,
         message: record.cache?.message || "",
@@ -154,7 +181,8 @@ function createWeatherService({
       usage = usageAt(record.usage, at);
     const frozen =
       record.source.useLastResponse ||
-      !record.source.keys.some((key) => key.apiKey);
+      (!record.source.keys.some((key) => key.apiKey) &&
+        !record.source.page.enabled);
     timer = setTimer(
       () => {
         timer = null;
@@ -171,7 +199,18 @@ function createWeatherService({
       },
       Math.min(
         2147483647,
-        Math.max(0, (frozen ? resetAt(at) : dueAt(record, usage, at)) - at),
+        Math.max(
+          0,
+          (frozen
+            ? resetAt(at)
+            : Math.min(
+                resetAt(at),
+                record.source.keys.some((key) => key.apiKey)
+                  ? dueAt(record, usage, at)
+                  : Infinity,
+                pageService.dueAt(record, at),
+              )) - at,
+        ),
       ),
     );
     timer?.unref?.();
@@ -198,7 +237,13 @@ function createWeatherService({
     await persist({
       ...record,
       usage,
-      ...(weather ? { weather, testResponse: testResponse(weather) } : {}),
+      ...(weather
+        ? {
+            weather,
+            testResponse: testResponse(weather),
+            pageCache: pageService.afterApiSuccess(record, now()),
+          }
+        : {}),
       cache: { message: weather ? "" : patch.message || "" },
     });
   }
@@ -274,13 +319,28 @@ function createWeatherService({
     let record = getRecord(),
       at = now(),
       usage = usageAt(record.usage, at);
-    if (record.usage.day !== usage.day) {
-      await persist({ ...record, usage });
+    const pageCache = pageCacheAt(record.pageCache, at);
+    if (
+      record.usage.day !== usage.day ||
+      record.pageCache.day !== pageCache.day
+    ) {
+      await persist({ ...record, usage, pageCache });
       record = getRecord();
     }
     if (disposed) return;
-    if (record.source.useLastResponse || dueAt(record, usage, at) > at) {
+    if (record.source.useLastResponse) {
       schedule();
+      return;
+    }
+    if (
+      !record.source.keys.some((key) => key.apiKey) ||
+      dueAt(record, usage, at) > at
+    ) {
+      try {
+        if (pageService.dueAt(record, at) <= at) await pageService.tick();
+      } finally {
+        schedule();
+      }
       return;
     }
     const eligible = entries(record, usage, at)
@@ -352,8 +412,10 @@ function createWeatherService({
   return {
     state,
     schedule,
+    resumePage: pageService.resume,
     dispose() {
       disposed = true;
+      pageService.dispose();
       if (timer !== null) clearTimer(timer);
       controller?.abort();
     },

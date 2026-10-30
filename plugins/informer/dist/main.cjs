@@ -14,6 +14,7 @@ const {
   restoreThemes,
 } = require("./themes.cjs");
 const STORAGE_KEY = "informer.v1";
+const { pageCacheAt } = require("./weather-page-service.cjs");
 const {
   restoreSource,
   validateSource,
@@ -51,6 +52,7 @@ exports.activate = async (
     source,
     usage: restoreUsage(saved.usage, now(), saved.cache?.attemptedAt, source),
     testResponse: testResponse(weather),
+    pageCache: pageCacheAt(saved.pageCache, now()),
     cache: {
       message:
         typeof saved.cache?.message === "string"
@@ -159,15 +161,51 @@ exports.activate = async (
         const poolChanged =
           poolSignature(source) !== poolSignature(record.source);
         if (poolChanged) usage.nextRequestAt = null;
+        const pageCache = pageCacheAt(record.pageCache, now());
+        if (
+          source.page.intervalMinutes !== record.source.page.intervalMinutes
+        ) {
+          pageCache.nextRequestAt =
+            pageCache.lastAttemptAt === null
+              ? null
+              : Math.max(
+                  pageCache.retryAt,
+                  pageCache.lastAttemptAt + source.page.intervalMinutes * 60000,
+                );
+        }
+        if (
+          source.page.url !== record.source.page.url ||
+          source.lat !== record.source.lat ||
+          source.lon !== record.source.lon
+        ) {
+          pageCache.etag = "";
+          pageCache.lastModified = "";
+          pageCache.validatedFor = "";
+          pageCache.actionCheckedAt = null;
+          pageCache.actionId = "";
+          pageCache.assetUrl = "";
+          pageCache.fullFetchedAt = null;
+        }
         const result = await persist({
           ...record,
           settings,
           source,
           usage,
+          pageCache,
           cache: poolChanged ? { message: "" } : record.cache,
         });
         weatherService.schedule();
         return result;
+      }),
+    ),
+  );
+  http.post(
+    "/weather/page/resume",
+    route(() =>
+      serial(async () => {
+        await weatherService.resumePage();
+        weatherService.schedule();
+        return snapshot();
       }),
     ),
   );

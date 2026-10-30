@@ -387,6 +387,41 @@
           </div>
           <div id="cache-status" class="status-block">Загрузка состояния…</div>
           <fieldset id="source-fields">
+            <div class="page-source">
+              <label class="check"
+                ><input id="page-enabled" type="checkbox" /> Обновлять со
+                страницы Яндекса</label
+              >
+              <div class="fields">
+                <label
+                  >Адрес страницы города<input
+                    id="page-url"
+                    type="url"
+                    placeholder="https://yandex.ru/pogoda/ru/yoshkar-ola"
+                    autocomplete="off"
+                    aria-describedby="page-url-hint"
+                /></label>
+                <label
+                  >Интервал, минут<input
+                    id="page-interval"
+                    type="number"
+                    min="5"
+                    max="1440"
+                    step="1"
+                    value="15"
+                    required
+                /></label>
+              </div>
+              <p id="page-url-hint" class="hint">
+                Укажите адрес города вручную. API обновляется по квоте ключей, а
+                между его запросами страница проверяется с заданным интервалом.
+                Координаты берутся из полей ниже.
+              </p>
+              <div id="page-status" class="status-block" role="status">
+                Загрузка состояния страницы…
+              </div>
+              <button id="page-resume" type="button" hidden>Возобновить</button>
+            </div>
             <div id="weather-keys" class="weather-keys"></div>
             <button id="add-weather-key" type="button">Добавить ключ</button>
             <p class="hint">

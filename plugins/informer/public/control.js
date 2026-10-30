@@ -221,7 +221,11 @@
     const previewSnapshot = structuredClone(snapshot);
     const condition = $("preview-weather-select").value;
     if (condition && previewSnapshot) {
-      previewSnapshot.weather = { ...previewSnapshot.weather, condition };
+      previewSnapshot.weather = {
+        ...previewSnapshot.weather,
+        condition,
+        iconUrl: "",
+      };
     }
     const frame = $("preview-frame");
     frame.contentWindow?.postMessage(
@@ -398,9 +402,44 @@
       usable: !malformed && (Boolean(secret) || entry.hasApiKey),
     };
   }
+  function normalizedPageUrl(value) {
+    if (!value.trim()) return "";
+    try {
+      const url = new URL(value.trim());
+      if (
+        url.protocol !== "https:" ||
+        !["yandex.ru", "www.yandex.ru"].includes(url.hostname) ||
+        url.username ||
+        url.password ||
+        url.port ||
+        !/^\/pogoda\/(?:ru\/)?[a-z0-9]+(?:-[a-z0-9]+)*\/?$/.test(url.pathname)
+      )
+        return null;
+      return `${url.origin}${url.pathname}`;
+    } catch {
+      return null;
+    }
+  }
+  function updatePageValidation() {
+    const input = $("page-url");
+    const normalized = normalizedPageUrl(input.value);
+    const invalid =
+      normalized === null || ($("page-enabled").checked && !normalized);
+    input.setCustomValidity(
+      invalid
+        ? "Укажите HTTPS-адрес страницы города на yandex.ru/pogoda без имени пользователя и пароля."
+        : "",
+    );
+    input.setAttribute("aria-invalid", String(invalid));
+    return !invalid;
+  }
   function updateSourceGuard(showPreview = true) {
     const input = $("use-last-response");
-    const disabled = !keyRows.some((entry) => keyCredentialState(entry).usable);
+    const pageUsable =
+      $("page-enabled").checked &&
+      Boolean(normalizedPageUrl($("page-url").value));
+    const disabled =
+      !pageUsable && !keyRows.some((entry) => keyCredentialState(entry).usable);
     const changed = disabled && !input.checked;
     input.disabled = disabled;
     if (disabled) input.checked = true;
@@ -450,6 +489,10 @@
   function bindSource() {
     const source = snapshot?.source;
     if (!sourceSupported) return;
+    $("page-enabled").checked = source.page.enabled;
+    $("page-url").value = source.page.url;
+    $("page-interval").value = source.page.intervalMinutes;
+    updatePageValidation();
     $("latitude").value = source.lat;
     $("longitude").value = source.lon;
     $("use-last-response").checked = source.useLastResponse;
@@ -474,10 +517,23 @@
       throw Error(
         "Обновите backend Informer и перезапустите GMIB для настройки источника.",
       );
+    updatePageValidation();
+    if (
+      !sourceInputValid($("page-url")) ||
+      !sourceInputValid($("page-interval"))
+    )
+      throw Error(
+        "Проверьте адрес страницы Яндекса и интервал (5–1440 минут).",
+      );
     for (const id of ["latitude", "longitude"])
       if (!sourceInputValid($(id)))
         throw Error("Проверьте координаты источника погоды.");
     return {
+      page: {
+        enabled: $("page-enabled").checked,
+        url: normalizedPageUrl($("page-url").value),
+        intervalMinutes: Number($("page-interval").value),
+      },
       lat: Number($("latitude").value),
       lon: Number($("longitude").value),
       useLastResponse: $("use-last-response").checked,
@@ -517,6 +573,12 @@
       updateKeyStatus(entry, key);
     }
     updateSourceGuard();
+    const page = c?.page;
+    $("page-resume").hidden =
+      !sourceSupported || !(page?.suspended || page?.formatChanged);
+    $("page-status").textContent = !sourceSupported
+      ? "Обновите backend для настройки страницы Яндекса."
+      : `Страница Яндекса: ${page?.suspended ? "приостановлена" : snapshot.source.page.enabled ? "включена" : "выключена"}\nОбновлений сегодня: ${page?.requestsToday ?? 0}; всего: ${page?.totalRequests ?? 0}${page?.mode === "background" ? "\nЛёгкое обновление" : ""}${page?.formatChanged ? "\nФормат страницы изменился — проверка раз в сутки" : ""}\nСледующее обновление страницы: ${sourceDate(page?.nextRequestAt)}\n${page?.retryAt ? `Повтор после: ${sourceDate(page.retryAt)}\n` : ""}Последняя попытка: ${sourceDate(page?.lastAttemptAt)}\nПоследний успешный ответ: ${sourceDate(page?.fetchedAt)}${page?.lastStatus ? `\nСтатус: ${page.lastStatus}` : ""}${page?.message ? `\n${page.message}` : ""}`;
     $("cache-status").textContent = !sourceSupported
       ? "Настройки источника недоступны. Перезапустите GMIB после обновления backend Informer."
       : `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}\nСегодня (квота): ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}\nДоступный пул: ${c?.remaining ?? 0}\nВсего попыток запроса: ${c?.totalRequests ?? 0}\nСледующее обновление: ${sourceDate(c?.nextRequestAt)}\nСброс лимита (МСК): ${sourceDate(c?.resetAt)}\nПолучен ответ: ${sourceDate(c?.fetchedAt)}${c?.message ? `\n${c.message}` : ""}`;
@@ -534,7 +596,10 @@
     sourceSupported = Boolean(
       data.source &&
       typeof data.source.useLastResponse === "boolean" &&
-      Array.isArray(data.source.keys),
+      Array.isArray(data.source.keys) &&
+      typeof data.source.page?.enabled === "boolean" &&
+      typeof data.source.page.url === "string" &&
+      Number.isInteger(data.source.page.intervalMinutes),
     );
     $("source-notice").hidden = sourceSupported;
     $("source-fields").disabled = !sourceSupported;
@@ -652,6 +717,10 @@
       if (
         path === "settings" &&
         (!Array.isArray(data?.source?.keys) ||
+          !data.source.page ||
+          ["enabled", "intervalMinutes", "url"].some(
+            (key) => data.source.page[key] !== body.weatherSource.page[key],
+          ) ||
           ["lat", "lon", "useLastResponse"].some(
             (key) => data.source[key] !== body.weatherSource[key],
           ) ||
@@ -712,9 +781,32 @@
       $("save").disabled = !ready || !settingsSupported;
     }
   });
+  $("page-resume").addEventListener("click", async () => {
+    $("page-resume").disabled = true;
+    try {
+      await action(
+        "weather/page/resume",
+        "POST",
+        {},
+        "Обновление страницы возобновлено",
+      );
+      toast("Обновление страницы возобновлено");
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      $("page-resume").disabled = false;
+    }
+  });
   $("add-weather-key").addEventListener("click", () => {
     addKeyRow()?.name.focus();
   });
+  for (const id of ["page-enabled", "page-url", "page-interval"]) {
+    $(id).addEventListener("input", () => {
+      updatePageValidation();
+      updateSourceGuard();
+      preview();
+    });
+  }
   $("use-last-response").addEventListener("change", () => {
     updateSourceGuard();
     preview();

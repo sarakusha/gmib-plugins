@@ -1,4 +1,4 @@
-const CACHE = "informer-ui-3";
+const CACHE = "informer-ui-4";
 const base = new URL(self.registration.scope);
 const shell = [
   "control.html",

@@ -352,7 +352,8 @@ body.single-line.with-seconds #seconds-wrap {
   height: calc(var(--temperature-size) * 1.6 * var(--scale));
   flex: none;
 }
-.weather-icon svg {
+.weather-icon svg,
+.weather-icon .page-weather-icon {
   display: block;
   width: 100%;
   height: 100%;
@@ -406,7 +407,8 @@ body.single-line.with-seconds #seconds-wrap {
   column-gap: calc(6px * var(--scale));
   align-content: start;
 }
-.forecast-item svg {
+.forecast-item svg,
+.forecast-item .page-weather-icon {
   width: calc(var(--forecast-size) * 1.9 * var(--scale));
   height: calc(var(--forecast-size) * 1.9 * var(--scale));
   grid-column: 1;
@@ -661,4 +663,8 @@ body:not(.compact) .forecast-row {
 }
 .test-output[hidden] {
   display: none;
+}
+
+.page-weather-icon {
+  object-fit: contain;
 }

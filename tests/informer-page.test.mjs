@@ -1,0 +1,178 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const {
+  parsePage,
+  validatePageUrl,
+  pageRequestUrl,
+  MAX_PAGE_BYTES,
+} = require("../plugins/informer/dist/weather-page.cjs");
+const model = require("../plugins/informer/dist/model.cjs");
+const location = { lat: 55.75, lon: 37.62 };
+const fact = {
+  temperatureInCelsius: 8,
+  feelsLikeInCelsius: 5,
+  condition: "PARTLY_CLOUDY",
+  windSpeedInMetersPerSecond: 2,
+  windDirection: "SOUTH",
+  pressure: 765,
+  humidity: 82,
+  daytime: "DAY",
+  icon: "skc_d",
+};
+function html(value, split = false) {
+  const row = `1:${JSON.stringify([
+    "$",
+    "component",
+    null,
+    {
+      goalPrefix: "main_feedback",
+      fact: value,
+    },
+  ])}\n`;
+  const chunks = split ? [row.slice(0, 37), row.slice(37)] : [row];
+  return chunks
+    .map(
+      (chunk) =>
+        `<script>self.__next_f.push(${JSON.stringify([1, chunk])});</script>`,
+    )
+    .join("");
+}
+test("page parser reads split Flight chunks as data and normalizes weather", () => {
+  const result = parsePage(html(fact, true), location, 1234);
+  assert.equal(result.temp, 8);
+  assert.equal(result.feelsLike, 5);
+  assert.equal(result.condition, "partly-cloudy");
+  assert.equal(result.windDir, "s");
+  assert.equal(result.pressureMm, 765);
+  assert.equal(result.humidity, 82);
+  assert.equal(result.fetchedAt, 1234);
+  assert.deepEqual(result.location, location);
+  assert.equal(result.provider, "yandex-page");
+  assert.equal(
+    result.iconUrl,
+    "https://yastatic.net/weather/i/icons/confident/dark/svg/skc_d.svg",
+  );
+});
+test("page parser rejects challenges, malformed data, executable scripts and oversized HTML", () => {
+  for (const source of [
+    "<html>captcha</html>",
+    html({ ...fact, temperatureInCelsius: "8" }),
+    '<script>self.__next_f.push([1, (() => { throw Error("executed"); })()]);</script>',
+    "x".repeat(MAX_PAGE_BYTES + 1),
+  ])
+    assert.throws(() => parsePage(source, location));
+});
+test("page request replaces untrusted coordinates and all unrelated query parameters", () => {
+  const result = pageRequestUrl(
+    "https://yandex.ru/pogoda/ru/moscow?lat=0&lat=1&lon=0&tracking=secret#today",
+    location,
+  );
+  assert.equal(
+    String(result),
+    "https://yandex.ru/pogoda/ru/moscow?lat=55.75&lon=37.62",
+  );
+  assert.throws(() =>
+    pageRequestUrl("https://yandex.ru/pogoda/moscow", { lat: 91, lon: 0 }),
+  );
+});
+test("manual page URL normalization discards query and fragment", () => {
+  assert.equal(
+    validatePageUrl("https://yandex.ru/pogoda/moscow?secret=unused#today"),
+    "https://yandex.ru/pogoda/moscow",
+  );
+});
+test("page icon accepts provider SVGs, rejects arbitrary URLs, and survives restore", () => {
+  const value = parsePage(html(fact), location, 1234);
+  const restored = model.restoreWeather(value);
+  assert.equal(restored.provider, "yandex-page");
+  assert.equal(restored.iconUrl, value.iconUrl);
+  for (const iconUrl of [
+    "https://evil.example/weather.svg",
+    "javascript:alert(1)",
+    "https://yastatic.net.evil.example/icon.svg",
+  ]) {
+    assert.equal(
+      parsePage(html({ ...fact, icon: undefined, iconUrl }), location).iconUrl,
+      undefined,
+    );
+  }
+});
+
+const {
+  pageActionRequest,
+  parsePageAction,
+  pageActionAssets,
+  findPageAction,
+} = require("../plugins/informer/dist/weather-page.cjs");
+const actionId = "a".repeat(42);
+const asset =
+  "https://weather.yastatic.net/s3/weather-frontend/front2/_next/static/chunks/6998-test.js";
+test("action discovery restricts assets to bounded Yandex script locations and reads identifiers without execution", () => {
+  const unsafe = [
+    "https://evil.example/test.js",
+    asset.replace("weather.yastatic.net", "weather.yastatic.net.evil.example"),
+    asset + "?token=secret",
+    asset + "#fragment",
+    asset.replace("https://", "http://"),
+    asset.replace("https://", "https://user:secret@"),
+  ];
+  assert.deepEqual(
+    pageActionAssets(
+      [asset, ...unsafe, asset]
+        .map((src) => `<script src="${src}"></script>`)
+        .join(""),
+    ),
+    [asset],
+  );
+  assert.equal(
+    findPageAction(
+      `createServerReference('${actionId}',null,null,'getMapsUserLocationDataAction');`,
+    ),
+    actionId,
+  );
+  assert.equal(
+    findPageAction(
+      `createServerReference('${actionId}',null,null,'unrelatedAction');`,
+    ),
+    null,
+  );
+  assert.equal(findPageAction("x".repeat(2 * 1024 * 1024 + 1)), null);
+  assert.throws(() =>
+    pageActionRequest("https://yandex.ru/pogoda/moscow", location, "invalid"),
+  );
+});
+test("light Flight parser retains forecast only for identical coordinates and accepts safe field aliases", () => {
+  const previous = parsePage(html(fact), location, 1234);
+  previous.forecast = [
+    {
+      date: "2026-10-30",
+      part: "day",
+      tempMin: 1,
+      tempMax: 8,
+      condition: "clear",
+      daytime: "d",
+      precipitationProbability: 0,
+    },
+  ];
+  const payload = `1:${JSON.stringify({ data: { weather: { now: { tempC: 12, condition: "CLEAR" } } } })}\n`;
+  const same = parsePageAction(payload, location, 2345, previous);
+  assert.equal(same.temp, 12);
+  assert.equal(same.humidity, 82);
+  assert.deepEqual(same.forecast, previous.forecast);
+  const moved = parsePageAction(
+    payload,
+    { lat: 56, lon: 37.62 },
+    2345,
+    previous,
+  );
+  assert.equal(moved.humidity, null);
+  assert.deepEqual(moved.forecast, []);
+  for (const invalid of ["0:{}\n", "0:{invalid}", "x".repeat(512 * 1024 + 1)]) {
+    assert.throws(
+      () => parsePageAction(invalid, location),
+      (error) => error.code === "FORMAT_CHANGED",
+    );
+  }
+});

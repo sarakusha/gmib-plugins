@@ -110,6 +110,30 @@
       core = `${c === "partly-cloudy" ? (moon ? '<path d="M31 9a14 14 0 1 0 10 22A14 14 0 0 1 31 9Z" fill="#e8f3ff" stroke="none"/>' : '<circle cx="28" cy="28" r="12" fill="rgba(255,221,144,.85)" stroke="none"/>') : ""}<path d="M20 43c-6 0-9-4-9-9s4-9 9-9c2 0 4 0 6 1 3-7 9-11 16-11 10 0 17 7 18 16 5 1 8 5 8 10 0 6-4 10-11 10H19" fill="rgba(237,246,252,.8)" stroke="rgba(255,255,255,.95)"/>${core}`;
     return `<svg viewBox="0 0 72 64" aria-hidden="true" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${core}</svg>`;
   };
+  const remoteIcon = (url) => {
+    if (typeof url !== "string" || url.length > 1000) return null;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" &&
+        !parsed.username &&
+        !parsed.password &&
+        !parsed.port &&
+        ((parsed.hostname === "yastatic.net" &&
+          parsed.pathname.startsWith("/weather/")) ||
+          parsed.hostname === "weather.yastatic.net") &&
+        /\.(?:svg|png|webp)$/.test(parsed.pathname)
+        ? parsed.toString()
+        : null;
+    } catch {
+      return null;
+    }
+  };
+  const weatherIcon = (weather, daytime = weather.daytime) => {
+    const url = remoteIcon(weather.iconUrl);
+    return url
+      ? `<img class="page-weather-icon" src="${text(url)}" alt="" aria-hidden="true" referrerpolicy="no-referrer" data-condition="${text(weather.condition)}" data-daytime="${daytime === "n" ? "n" : "d"}">`
+      : icon(weather.condition, daytime);
+  };
   const condition = (c) => labels[c] || "Погода";
   const temp = (n) =>
     Number.isFinite(n) ? `${n > 0 ? "+" : ""}${Math.round(n)}°` : "—";
@@ -355,10 +379,12 @@
   function forecastItem(f, index) {
     const label = parts[f.part] || "Прогноз";
     const t =
-      Number.isFinite(f.tempMin) && Number.isFinite(f.tempMax)
+      Number.isFinite(f.tempMin) &&
+      Number.isFinite(f.tempMax) &&
+      f.tempMin !== f.tempMax
         ? `${temp(f.tempMin)}…${temp(f.tempMax)}`
         : temp(Number.isFinite(f.tempMax) ? f.tempMax : f.tempMin);
-    return `<div class="forecast-item">${icon(f.condition, f.daytime)}<span class="forecast-label" data-value-key="forecast-${index}-${f.part}-label">${label}</span><span class="forecast-temp" data-value-key="forecast-${index}-${f.part}-temp">${t}</span></div>`;
+    return `<div class="forecast-item">${weatherIcon(f)}<span class="forecast-label" data-value-key="forecast-${index}-${f.part}-label">${label}</span><span class="forecast-temp" data-value-key="forecast-${index}-${f.part}-temp">${t}</span></div>`;
   }
   function metrics(weather) {
     if (!weather) return "";
@@ -401,7 +427,7 @@
     if (kind === "empty")
       html = '<div class="empty-weather">Погода недоступна</div>';
     if (kind === "current")
-      html = `<div class="weather-current"><div class="weather-icon">${icon(weather.condition, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
+      html = `<div class="weather-current"><div class="weather-icon">${weatherIcon(weather, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
     if (kind === "details")
       html = `<div class="weather-caption">Погодные условия</div>${metrics(weather)}`;
     if (kind === "forecast")
@@ -415,6 +441,20 @@
     lastWeatherMarkup = markup;
     $("clock-metrics").innerHTML = metricsHtml;
     $("weather-slide").innerHTML = `<div class="weather-content">${html}</div>`;
+    document.querySelectorAll(".page-weather-icon").forEach((img) => {
+      img.addEventListener(
+        "error",
+        () => {
+          // Render only the bundled, trusted SVG when an external image is unavailable.
+          const fallback = document.createElement("template");
+          fallback.innerHTML = icon(img.dataset.condition, img.dataset.daytime);
+          img.replaceWith(fallback.content);
+          fitWeatherContent();
+        },
+        { once: true },
+      );
+      img.addEventListener("load", fitWeatherContent, { once: true });
+    });
     document.querySelectorAll(valueSelector).forEach((el) => {
       InformerMotion.set(
         el,

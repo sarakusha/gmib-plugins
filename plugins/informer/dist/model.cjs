@@ -32,6 +32,26 @@ const calendarDate = (value) => {
   );
 };
 
+// Remote images remain data: only Yandex's weather asset hosts are accepted.
+function safeIconUrl(value) {
+  if (typeof value !== "string" || value.length > 1000) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      ((url.hostname === "yastatic.net" &&
+        url.pathname.startsWith("/weather/")) ||
+        url.hostname === "weather.yastatic.net") &&
+      /\.(?:svg|png|webp)$/.test(url.pathname)
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function validateSettings(value) {
   if (!object(value)) fail("Настройки должны быть объектом");
   const result = structuredClone(defaults);
@@ -177,6 +197,9 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
         condition: text(part.condition, "unknown"),
         daytime: part.daytime === "n" ? "n" : "d",
         precipitationProbability: optional(part.prec_prob, 0, 100),
+        ...(safeIconUrl(part.iconUrl)
+          ? { iconUrl: safeIconUrl(part.iconUrl) }
+          : {}),
       });
     }
   }
@@ -200,6 +223,9 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
     observedAt: observed === null ? null : observed * 1000,
     fetchedAt,
     temp: fact.temp,
+    ...(safeIconUrl(fact.iconUrl)
+      ? { iconUrl: safeIconUrl(fact.iconUrl) }
+      : {}),
     feelsLike: optional(fact.feels_like, -120, 80),
     condition: fact.condition,
     daytime: fact.daytime === "n" ? "n" : "d",
@@ -230,16 +256,15 @@ function restoreWeather(value) {
     if (!object(item)) continue;
     if (!groups.has(item.date))
       groups.set(item.date, { date: item.date, parts: [] });
-    groups
-      .get(item.date)
-      .parts.push({
-        part_name: item.part,
-        temp_min: item.tempMin,
-        temp_max: item.tempMax,
-        condition: item.condition,
-        daytime: item.daytime,
-        prec_prob: item.precipitationProbability,
-      });
+    groups.get(item.date).parts.push({
+      part_name: item.part,
+      temp_min: item.tempMin,
+      temp_max: item.tempMax,
+      condition: item.condition,
+      daytime: item.daytime,
+      prec_prob: item.precipitationProbability,
+      iconUrl: item.iconUrl,
+    });
   }
   const forecasts = [...groups.values()];
   if (forecasts[0])
@@ -252,6 +277,7 @@ function restoreWeather(value) {
       info: value.location,
       fact: {
         temp: value.temp,
+        iconUrl: value.iconUrl,
         feels_like: value.feelsLike,
         condition: value.condition,
         daytime: value.daytime,
@@ -266,8 +292,8 @@ function restoreWeather(value) {
     },
     value.fetchedAt,
   );
-  if (value.provider === "yandex-forecast")
-    restored.provider = "yandex-forecast";
+  if (["yandex-forecast", "yandex-page"].includes(value.provider))
+    restored.provider = value.provider;
   return restored;
 }
 
@@ -275,3 +301,5 @@ exports.defaults = defaults;
 exports.validateSettings = validateSettings;
 exports.normalizeWeather = normalizeWeather;
 exports.restoreWeather = restoreWeather;
+
+exports.safeIconUrl = safeIconUrl;

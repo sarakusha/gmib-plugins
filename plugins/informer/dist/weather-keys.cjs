@@ -1,6 +1,7 @@
 "use strict";
 
 const { createHash } = require("node:crypto");
+const { validatePage, pageDefaults } = require("./weather-page-service.cjs");
 const DAY = 86400000,
   MOSCOW = 10800000;
 const dayAt = (now) => new Date(now + MOSCOW).toISOString().slice(0, 10);
@@ -19,6 +20,9 @@ function validateSource(value, previous = { keys: [] }) {
     typeof value.useLastResponse !== "boolean"
   )
     throw Error("Проверьте координаты и режим источника.");
+  const page = validatePage(
+    value.page === undefined ? previous.page || pageDefaults : value.page,
+  );
   let entries = value.keys;
   if (entries === undefined) {
     if (previous.keys.length > 1)
@@ -85,7 +89,8 @@ function validateSource(value, previous = { keys: [] }) {
   });
   if (
     !value.useLastResponse &&
-    (!keys.length || keys.some((key) => !key.apiKey))
+    !keys.some((key) => key.apiKey) &&
+    !page.enabled
   )
     throw Error("Для обновления погоды укажите API-ключ в каждой строке.");
   return {
@@ -93,6 +98,7 @@ function validateSource(value, previous = { keys: [] }) {
     lon: value.lon,
     useLastResponse: value.useLastResponse,
     keys,
+    page,
   };
 }
 function restoreSource(saved, weather) {
@@ -101,6 +107,7 @@ function restoreSource(saved, weather) {
     lon: weather.location.lon ?? 47.8908,
     useLastResponse: true,
     keys: [],
+    page: { ...pageDefaults },
   };
   try {
     return validateSource(saved, fallback);

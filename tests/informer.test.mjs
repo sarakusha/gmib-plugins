@@ -1367,3 +1367,558 @@ test("an old-day rejected response cannot decrement new-day counters", async () 
   assert.equal(state.cache.totalRequests, 1);
   assert.equal(h.data.get(KEY).usage.day, "2026-10-31");
 });
+
+const pageSource = (values = {}) => ({
+  enabled: true,
+  url: "https://yandex.ru/pogoda/ru/moscow",
+  intervalMinutes: 15,
+  ...values,
+});
+const pageHtml = () =>
+  `<html><script>self.__next_f.push([1,${JSON.stringify(
+    `1:${JSON.stringify([
+      "$",
+      "component",
+      null,
+      {
+        goalPrefix: "main_feedback",
+        fact: {
+          temperatureInCelsius: 8,
+          feelsLikeInCelsius: 5,
+          condition: "PARTLY_CLOUDY",
+          windSpeedInMetersPerSecond: 2,
+          windDirection: "SOUTH",
+          pressure: 765,
+          humidity: 82,
+          daytime: "DAY",
+          icon: "skc_d",
+        },
+      },
+    ])}\n`,
+  )}]);</script></html>`;
+const pageResponse = () =>
+  new Response(pageHtml(), {
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+async function configurePage(h, values = {}) {
+  return source(h, {
+    keys: [],
+    apiKey: undefined,
+    page: pageSource(),
+    ...values,
+  });
+}
+
+test("page source defaults are disabled and legacy settings retain page configuration", async () => {
+  const h = host();
+  await h.activate();
+  assert.deepEqual((await h.call("GET", "/state")).source.page, {
+    enabled: false,
+    url: "",
+    intervalMinutes: 15,
+  });
+  const configured = await configurePage(h, { useLastResponse: true });
+  assert.deepEqual(configured.source.page, pageSource());
+  const legacy = await source(h, { useLastResponse: true });
+  assert.deepEqual(legacy.source.page, pageSource());
+});
+
+test("page source validates URL and interval atomically and strips query and fragment", async () => {
+  const h = host();
+  await h.activate();
+  const before = await h.call("GET", "/state");
+  for (const url of [
+    "http://yandex.ru/pogoda/moscow",
+    "https://example.org/pogoda/moscow",
+    "https://yandex.ru.evil.example/pogoda/moscow",
+    "https://yandex.ru/news",
+    "https://user:secret@yandex.ru/pogoda/moscow",
+    "https://yandex.ru:8443/pogoda/moscow",
+    "https://weather.yandex.ru/pogoda/moscow",
+    "https://yandex.ru/pogoda/",
+  ]) {
+    assert.equal(
+      (await configurePage(h, { page: pageSource({ url }) })).status,
+      422,
+      url,
+    );
+    assert.deepEqual((await h.call("GET", "/state")).source, before.source);
+  }
+  for (const intervalMinutes of [0, 1, 4, 1441, 5.5, "15", null]) {
+    assert.equal(
+      (await configurePage(h, { page: pageSource({ intervalMinutes }) }))
+        .status,
+      422,
+    );
+  }
+  const accepted = await configurePage(h, {
+    useLastResponse: true,
+    page: pageSource({
+      url: "https://www.yandex.ru/pogoda/moscow?lat=1&lon=2&secret=unused#today",
+    }),
+  });
+  assert.equal(accepted.source.page.url, "https://www.yandex.ru/pogoda/moscow");
+  assert.equal(
+    (await configurePage(h, { page: pageSource({ enabled: false }) })).status,
+    422,
+  );
+});
+
+test("page-only live source uses configured coordinates without spending API quota", async () => {
+  const c = clock(undefined, async () => pageResponse());
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const configured = await configurePage(h);
+  assert.notEqual(configured.status, 422);
+  const apiUsage = structuredClone(h.data.get(KEY).usage);
+  await c.advance();
+  assert.equal(c.requests.length, 1);
+  const url = new URL(c.requests[0][0]);
+  assert.equal(url.origin, "https://yandex.ru");
+  assert.equal(url.searchParams.get("lat"), "55.75");
+  assert.equal(url.searchParams.get("lon"), "37.62");
+  assert.deepEqual([...url.searchParams.keys()].sort(), ["lat", "lon"]);
+  assert.equal(c.requests[0][1].redirect, "error");
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.page.requestsToday, 1);
+  assert.equal(state.cache.page.totalRequests, 1);
+  assert.equal(state.cache.page.nextRequestAt, c.now() + 15 * 60000);
+  assert.equal(state.cache.nextUpdateAt, state.cache.page.nextRequestAt);
+  assert.deepEqual(h.data.get(KEY).usage, apiUsage);
+  assert.equal(state.weather.temp, 8);
+  await h.dispose();
+});
+
+test("failed page attempts retain weather, pace retries, and persist across restart", async () => {
+  const c = clock(
+    undefined,
+    async () => new Response("unavailable", { status: 500 }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const before = (await h.call("GET", "/state")).weather;
+  await configurePage(h);
+  await c.advance();
+  const state = await h.call("GET", "/state");
+  assert.deepEqual(state.weather, before);
+  assert.equal(state.cache.page.totalRequests, 1);
+  assert.ok(state.cache.page.nextRequestAt >= c.now() + 30 * 60000);
+  const saved = structuredClone(h.data.get(KEY));
+  assert.equal(saved.pageCache.total, 1);
+  await h.dispose();
+  const nextClock = clock(c.now(), async () => pageResponse());
+  const restarted = host(saved, nextClock.runtime);
+  await restarted.activate();
+  await nextClock.advance(state.cache.page.nextRequestAt - 1);
+  assert.equal(nextClock.requests.length, 0);
+  await nextClock.advance(state.cache.page.nextRequestAt);
+  assert.equal(nextClock.requests.length, 1);
+  await restarted.dispose();
+});
+
+test("page freeze and interval edits preserve cadence without a catch-up burst", async () => {
+  const c = clock(undefined, async () => pageResponse());
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  await c.advance();
+  const firstAt = c.now();
+  await configurePage(h, { useLastResponse: true });
+  await c.advance(firstAt + 20 * 60000);
+  assert.equal(c.requests.length, 1);
+  await configurePage(h, { page: pageSource({ intervalMinutes: 60 }) });
+  await c.advance();
+  assert.equal(c.requests.length, 1);
+  assert.equal(
+    (await h.call("GET", "/state")).cache.page.nextRequestAt,
+    firstAt + 60 * 60000,
+  );
+  await c.advance(firstAt + 10 * 86400000);
+  assert.equal(c.requests.length, 2);
+  await c.advance();
+  assert.equal(c.requests.length, 2);
+  await h.dispose();
+});
+
+for (const apiFails of [false, true]) {
+  test(`mixed sources prioritize API and ${apiFails ? "fall back immediately after error" : "defer page after success"}`, async () => {
+    const c = clock(undefined, async (url) =>
+      new URL(url).hostname === "api.weather.yandex.ru"
+        ? jsonResponse(apiFails ? {} : fakeWeather(), apiFails ? 500 : 200)
+        : pageResponse(),
+    );
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [poolKey("mixed", validKey)], { page: pageSource() });
+    await c.advance();
+    assert.equal(new URL(c.requests[0][0]).hostname, "api.weather.yandex.ru");
+    const state = await h.call("GET", "/state");
+    assert.equal(state.source.keys[0].requestsToday, 1);
+    assert.equal(state.source.keys[0].totalRequests, 1);
+    if (apiFails) {
+      assert.equal(c.requests.length, 2);
+      assert.equal(state.cache.page.totalRequests, 1);
+      assert.equal(state.weather.provider, "yandex-page");
+    } else {
+      assert.equal(c.requests.length, 1);
+      assert.equal(state.cache.page.totalRequests, 0);
+      assert.ok(state.cache.page.nextRequestAt >= c.now() + 15 * 60000);
+    }
+    await h.dispose();
+  });
+}
+
+test("page attempt counters reset on Moscow midnight while lifetime totals survive", async () => {
+  const c = clock(Date.parse("2026-10-30T20:55:00Z"), async () =>
+    pageResponse(),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h, { page: pageSource({ intervalMinutes: 5 }) });
+  await c.advance();
+  assert.equal((await h.call("GET", "/state")).cache.page.requestsToday, 1);
+  await c.advance(Date.parse("2026-10-30T21:00:00Z"));
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.page.requestsToday, 1);
+  assert.equal(state.cache.page.totalRequests, 2);
+  await h.dispose();
+});
+
+for (const [label, response] of [
+  ["HTTP 403", () => new Response("Forbidden", { status: 403 })],
+  [
+    "captcha challenge",
+    () =>
+      new Response(
+        "<html><title>Are you a robot?</title><form action='/checkcaptcha'>captcha</form></html>",
+        { headers: { "content-type": "text/html" } },
+      ),
+  ],
+]) {
+  test(`page ${label} suspends automatic requests until explicit resume`, async () => {
+    const c = clock(undefined, async () => response());
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await configurePage(h);
+    await c.advance();
+    const state = await h.call("GET", "/state");
+    assert.equal(state.cache.page.suspended, true);
+    assert.equal(state.cache.page.nextRequestAt, null);
+    await c.advance(c.now() + 2 * 60000);
+    assert.equal(c.requests.length, 1);
+    const resumed = await h.call("POST", "/weather/page/resume");
+    assert.equal(resumed.cache.page.suspended, false);
+    assert.equal(
+      resumed.cache.page.nextRequestAt,
+      state.cache.page.lastAttemptAt + 15 * 60000,
+    );
+    await c.advance();
+    assert.equal(c.requests.length, 1);
+    await c.advance(resumed.cache.page.nextRequestAt);
+    assert.equal(c.requests.length, 2);
+    await h.dispose();
+  });
+}
+
+test("page 429 honors Retry-After and retains weather without spending API quota", async () => {
+  const c = clock(
+    undefined,
+    async () =>
+      new Response("Too Many Requests", {
+        status: 429,
+        headers: { "retry-after": "7200" },
+      }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const before = (await h.call("GET", "/state")).weather;
+  await configurePage(h);
+  await c.advance();
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.page.suspended, false);
+  assert.ok(state.cache.page.nextRequestAt >= c.now() + 7200 * 1000);
+  assert.deepEqual(state.weather, before);
+  assert.equal(state.cache.totalRequests, 0);
+  await c.advance(state.cache.page.nextRequestAt - 1);
+  assert.equal(c.requests.length, 1);
+  await h.dispose();
+});
+
+test("page validators support 304 and are dropped after coordinates change", async () => {
+  const c = clock(undefined, async (_url, options) => {
+    const headers = new Headers(options.headers);
+    return headers.has("if-none-match")
+      ? new Response(null, { status: 304 })
+      : new Response(pageHtml(), {
+          headers: {
+            "content-type": "text/html",
+            etag: '"weather-v1"',
+            "last-modified": "Fri, 30 Oct 2026 08:00:00 GMT",
+          },
+        });
+  });
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  await c.advance();
+  const first = await h.call("GET", "/state");
+  await c.advance(first.cache.page.nextRequestAt);
+  assert.equal(c.requests.length, 2);
+  const headers = new Headers(c.requests[1][1].headers);
+  assert.equal(headers.get("if-none-match"), '"weather-v1"');
+  assert.equal(
+    headers.get("if-modified-since"),
+    "Fri, 30 Oct 2026 08:00:00 GMT",
+  );
+  const second = await h.call("GET", "/state");
+  assert.equal(second.weather.temp, first.weather.temp);
+  assert.equal(second.cache.page.totalRequests, 2);
+  await configurePage(h, { lat: 56 });
+  const changed = await h.call("GET", "/state");
+  await c.advance(changed.cache.page.nextRequestAt);
+  const changedHeaders = new Headers(c.requests.at(-1)[1].headers);
+  assert.equal(changedHeaders.has("if-none-match"), false);
+  assert.equal(changedHeaders.has("if-modified-since"), false);
+  await h.dispose();
+});
+
+test("unexpected page format retains cached weather and limits probes to once per day across restart and interval edits", async () => {
+  const c = clock(
+    undefined,
+    async () =>
+      new Response("<html><body>Weather layout changed</body></html>", {
+        headers: { "content-type": "text/html" },
+      }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const before = (await h.call("GET", "/state")).weather;
+  await configurePage(h);
+  await c.advance();
+  const first = await h.call("GET", "/state");
+  const firstAttempt = c.now();
+  const stored = h.data.get(KEY).pageCache;
+  assert.equal(stored.formatChanged, true);
+  assert.ok(stored.retryAt >= firstAttempt + 86400000);
+  assert.ok(first.cache.page.nextRequestAt >= firstAttempt + 86400000);
+  assert.deepEqual(first.weather, before);
+  await configurePage(h, { page: pageSource({ intervalMinutes: 5 }) });
+  const changed = await h.call("GET", "/state");
+  assert.ok(changed.cache.page.nextRequestAt >= firstAttempt + 86400000);
+  const saved = structuredClone(h.data.get(KEY));
+  await h.dispose();
+  const nextClock = clock(firstAttempt, async () => pageResponse());
+  const restarted = host(saved, nextClock.runtime);
+  await restarted.activate();
+  await nextClock.advance(firstAttempt + 86400000 - 1);
+  assert.equal(nextClock.requests.length, 0);
+  const state = await restarted.call("GET", "/state");
+  await nextClock.advance(state.cache.page.nextRequestAt);
+  assert.equal(nextClock.requests.length, 1);
+  assert.equal((await restarted.call("GET", "/state")).weather.temp, 8);
+  assert.equal(restarted.data.get(KEY).pageCache.formatChanged, false);
+  await restarted.dispose();
+});
+
+const actionId = "a".repeat(42);
+const actionAsset =
+  "https://weather.yastatic.net/s3/weather-frontend/front2/_next/static/chunks/6998-test.js";
+const lightResponse = () =>
+  new Response(
+    `0:${JSON.stringify({
+      data: {
+        weather: {
+          now: {
+            temperatureInCelsius: 12,
+            condition: "CLEAR",
+            daytime: "DAY",
+          },
+        },
+      },
+    })}\n`,
+    { headers: { "content-type": "text/x-component" } },
+  );
+function lightClock(failure) {
+  return clock(undefined, async (url, options) => {
+    if (String(url) === actionAsset)
+      return new Response(
+        `createServerReference('${actionId}',null,null,'getMapsUserLocationDataAction');`,
+      );
+    if (options.method === "POST") return failure ? failure() : lightResponse();
+    return new Response(`${pageHtml()}<script src="${actionAsset}"></script>`, {
+      headers: { "content-type": "text/html" },
+    });
+  });
+}
+test("light page updates discover action once, retain optional weather and refresh full HTML daily", async () => {
+  const c = lightClock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  const usage = structuredClone(h.data.get(KEY).usage);
+  await c.advance();
+  assert.equal(c.requests.length, 2);
+  assert.equal(String(c.requests[1][0]), actionAsset);
+  const first = await h.call("GET", "/state");
+  assert.equal(first.cache.page.totalRequests, 1);
+  await c.advance(first.cache.page.nextRequestAt);
+  assert.equal(c.requests.length, 3);
+  const [url, options] = c.requests[2];
+  assert.equal(new URL(url).pathname, "/pogoda/ru/moscow");
+  assert.equal(options.method, "POST");
+  assert.equal(new Headers(options.headers).get("next-action"), actionId);
+  assert.equal(new Headers(options.headers).get("accept"), "text/x-component");
+  const [body] = JSON.parse(options.body);
+  assert.equal(body.lat, 55.75);
+  assert.equal(body.lon, 37.62);
+  const light = await h.call("GET", "/state");
+  assert.equal(light.weather.temp, 12);
+  assert.equal(light.weather.humidity, first.weather.humidity);
+  assert.deepEqual(light.weather.forecast, first.weather.forecast);
+  assert.equal(light.cache.page.totalRequests, 2);
+  assert.deepEqual(h.data.get(KEY).usage, usage);
+  await c.advance(first.cache.page.lastAttemptAt + 86400000);
+  assert.notEqual(c.requests.at(-1)[1].method, "POST");
+  assert.equal((await h.call("GET", "/state")).weather.temp, 8);
+  await h.dispose();
+});
+for (const [label, failure] of [
+  ["expired action", () => new Response("Not Found", { status: 404 })],
+  [
+    "unexpected action response",
+    () =>
+      new Response("0:{}\n", {
+        headers: { "content-type": "text/x-component" },
+      }),
+  ],
+]) {
+  test(`${label} pauses light requests for a day without immediate HTML fallback`, async () => {
+    const c = lightClock(failure);
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await configurePage(h);
+    await c.advance();
+    const first = await h.call("GET", "/state");
+    await c.advance(first.cache.page.nextRequestAt);
+    assert.equal(c.requests.length, 3);
+    const failed = await h.call("GET", "/state");
+    assert.deepEqual(failed.weather, first.weather);
+    assert.equal(h.data.get(KEY).pageCache.formatChanged, true);
+    assert.ok(failed.cache.page.nextRequestAt >= c.now() + 86400000);
+    await c.advance(c.now() + 3600000);
+    assert.equal(c.requests.length, 3);
+    await h.dispose();
+  });
+}
+
+for (const [label, body] of [
+  [
+    "out-of-range temperature",
+    () =>
+      pageHtml().replace(
+        'temperatureInCelsius\\\":8',
+        'temperatureInCelsius\\\":999',
+      ),
+  ],
+  [
+    "missing condition",
+    () =>
+      pageHtml().replace(
+        'condition\\\":\\\"PARTLY_CLOUDY\\\"',
+        'unusedCondition\\\":\\\"PARTLY_CLOUDY\\\"',
+      ),
+  ],
+  ["oversized response", () => "x".repeat(4 * 1024 * 1024 + 1)],
+]) {
+  test(`page ${label} preserves weather and waits a day for a format probe`, async () => {
+    const responseBody = body();
+    if (label === "out-of-range temperature")
+      assert.ok(responseBody.includes("999"));
+    if (label === "missing condition")
+      assert.ok(responseBody.includes("unusedCondition"));
+    const c = clock(
+      undefined,
+      async () =>
+        new Response(responseBody, {
+          headers: { "content-type": "text/html" },
+        }),
+    );
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    const before = (await h.call("GET", "/state")).weather;
+    await configurePage(h);
+    await c.advance();
+    const state = await h.call("GET", "/state");
+    assert.deepEqual(state.weather, before);
+    assert.equal(h.data.get(KEY).pageCache.formatChanged, true);
+    assert.ok(state.cache.page.nextRequestAt >= c.now() + 86400000);
+    await c.advance(c.now() + 3600000);
+    assert.equal(c.requests.length, 1);
+    await h.dispose();
+  });
+}
+
+test("page resume is harmless without a configured live page source", async () => {
+  const c = clock(undefined, async () => pageResponse());
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await h.call("POST", "/weather/page/resume");
+  await c.advance();
+  assert.equal(c.requests.length, 0);
+  await configurePage(h, { useLastResponse: true });
+  await h.call("POST", "/weather/page/resume");
+  await c.advance();
+  assert.equal(c.requests.length, 0);
+  await h.dispose();
+});
+
+test("missing action discovery is cached for a day while valid HTML weather continues updating", async () => {
+  const c = clock(undefined, async (url) => String(url) === actionAsset
+    ? new Response("/* No weather action in this build. */")
+    : new Response(`${pageHtml()}<script src="${actionAsset}"></script>`, {
+      headers: { "content-type": "text/html" },
+    }));
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  const usage = structuredClone(h.data.get(KEY).usage);
+  await c.advance();
+  assert.equal(c.requests.length, 2);
+  const first = await h.call("GET", "/state");
+  assert.equal(first.weather.temp, 8);
+  assert.equal(h.data.get(KEY).pageCache.formatChanged, false);
+  assert.equal(first.cache.page.totalRequests, 1);
+  await c.advance(first.cache.page.nextRequestAt);
+  assert.equal(c.requests.length, 3);
+  assert.notEqual(c.requests[2][1].method, "POST");
+  assert.notEqual(String(c.requests[2][0]), actionAsset);
+  const next = await h.call("GET", "/state");
+  assert.equal(next.weather.temp, 8);
+  assert.equal(next.cache.page.totalRequests, 2);
+  assert.equal(h.data.get(KEY).pageCache.formatChanged, false);
+  assert.deepEqual(h.data.get(KEY).usage, usage);
+  await h.dispose();
+});
+
+test("explicit resume after expired action reboots from full HTML instead of repeating stale POST", async () => {
+  const c = lightClock(() => new Response("Not Found", { status: 404 }));
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  await c.advance();
+  const first = await h.call("GET", "/state");
+  await c.advance(first.cache.page.nextRequestAt);
+  assert.equal(c.requests.at(-1)[1].method, "POST");
+  assert.equal(h.data.get(KEY).pageCache.formatChanged, true);
+  const resumed = await h.call("POST", "/weather/page/resume");
+  assert.equal(h.data.get(KEY).pageCache.actionId, "");
+  const previousLength = c.requests.length;
+  await c.advance(resumed.cache.page.nextRequestAt);
+  const [url, options] = c.requests[previousLength];
+  assert.equal(new URL(url).hostname, "yandex.ru");
+  assert.notEqual(options.method, "POST");
+  const state = await h.call("GET", "/state");
+  assert.equal(state.weather.temp, 8);
+  assert.equal(h.data.get(KEY).pageCache.formatChanged, false);
+  await h.dispose();
+});
