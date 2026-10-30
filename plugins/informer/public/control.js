@@ -61,7 +61,7 @@
     sourceBound = false,
     saving = false,
     ready = false,
-    previewScreenId = null,
+    previewScreenId = "",
     outputLoading = false,
     outputBusy = false,
     outputBound = false,
@@ -261,12 +261,12 @@
       screen.height > 0
     );
   }
-  function syncScreenOptions(select, screens, placeholder = false) {
+  function syncScreenOptions(select, screens, placeholder = "") {
     const options = screens.map((screen) => [
       String(screen.id),
       screenLabel(screen),
     ]);
-    if (placeholder) options.unshift(["", "Выберите экран"]);
+    if (placeholder) options.unshift(["", placeholder]);
     const unchanged =
       select.options.length === options.length &&
       options.every(
@@ -284,26 +284,36 @@
     const screens = output?.screens || [];
     const select = $("preview-screen-select");
     const previous = previewScreenId;
-    if (!screens.some((screen) => String(screen.id) === previewScreenId)) {
-      const bound = output?.status?.profile?.screenId;
-      previewScreenId = String(
-        screens.find((screen) => screen.id === bound)?.id ??
-          screens[0]?.id ??
-          "",
-      );
-    }
-    syncScreenOptions(select, screens);
+    if (!screens.some((screen) => String(screen.id) === previewScreenId))
+      previewScreenId = "";
+    syncScreenOptions(select, screens, "Текущий режим");
     if (select.value !== previewScreenId) select.value = previewScreenId;
-    $("preview-screen-field").hidden = screens.length <= 1;
+    $("preview-screen-field").hidden = screens.length === 0;
     resizePreview();
     if (previous !== previewScreenId) preview();
+  }
+  function selectedPreviewScreen() {
+    const screens = output?.screens || [];
+    if (previewScreenId)
+      return screens.find((screen) => String(screen.id) === previewScreenId);
+    // Follow the confirmed output, not an unapplied selection in the form.
+    const config = output?.config;
+    const configuredId =
+      config?.mode === "compact"
+        ? config.compactScreenId
+        : config?.wideScreenId;
+    const screenId = output?.status?.active
+      ? (output.status.profile?.screenId ?? configuredId)
+      : (configuredId ?? output?.status?.profile?.screenId);
+    return (
+      screens.find((screen) => screen.id === screenId) ??
+      (screenId == null ? screens[0] : undefined)
+    );
   }
   function resizePreview() {
     const holder = document.querySelector(".preview-frame");
     const frame = $("preview-frame");
-    const screen = output?.screens?.find(
-      (s) => String(s.id) === previewScreenId,
-    );
+    const screen = selectedPreviewScreen();
     const valid = validDimensions(screen);
     holder.hidden = !valid;
     $("preview-screen-status").hidden = valid;

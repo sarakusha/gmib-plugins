@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   "utf8",
 );
 const scope = "http://localhost:3000/plugins/informer/public/";
-const cacheName = "informer-ui-10";
+const cacheName = "informer-ui-11";
 
 function worker() {
   const listeners = new Map();
