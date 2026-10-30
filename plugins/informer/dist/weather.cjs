@@ -225,6 +225,7 @@ function createWeatherService({
       counter.used = Math.max(0, counter.used - 1);
     }
     usage.keys[hash] = { ...counter, ...patch };
+    if (weather) weather.forecastSource = "api";
     const remaining = available(record, usage, now());
     usage.nextRequestAt = Math.min(
       resetAt(now()),

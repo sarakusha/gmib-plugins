@@ -295,6 +295,29 @@ function createPageService({
       if (isDisposed()) return;
       const current = getRecord(),
         next = pageCacheAt(current.pageCache, now());
+      // Website facts may refresh between API calls, but must not replace
+      // still usable API forecast ranges with a different presentation.
+      const previous = current.weather;
+      if (
+        weather &&
+        current.source.keys.some((key) => key.apiKey) &&
+        previous.forecastSource === "api" &&
+        previous.location.lat === weather.location.lat &&
+        previous.location.lon === weather.location.lon
+      ) {
+        const parts = new Intl.DateTimeFormat("en", {
+          timeZone: current.settings.clock.timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(now());
+        const field = (type) => parts.find((part) => part.type === type).value;
+        const today = `${field("year")}-${field("month")}-${field("day")}`;
+        if (previous.forecast.some((part) => part.date >= today)) {
+          weather.forecast = previous.forecast;
+          weather.forecastSource = "api";
+        }
+      }
       await persist({
         ...current,
         ...(weather ? { weather, testResponse: testResponse(weather) } : {}),

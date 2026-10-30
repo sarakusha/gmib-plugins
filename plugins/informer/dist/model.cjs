@@ -297,6 +297,8 @@ function restoreWeather(value) {
   );
   if (["yandex-forecast", "yandex-page"].includes(value.provider))
     restored.provider = value.provider;
+  if (["api", "page"].includes(value.forecastSource))
+    restored.forecastSource = value.forecastSource;
   return restored;
 }
 

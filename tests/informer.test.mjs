@@ -1596,6 +1596,70 @@ for (const apiFails of [false, true]) {
   });
 }
 
+test("website refresh keeps API forecast ranges across restart while updating current weather", async () => {
+  const raw = fakeWeather();
+  raw.forecast.date = "2026-10-30";
+  raw.forecast.parts[0].temp_min = 4;
+  raw.forecast.parts[0].temp_max = 12;
+  const c = clock(undefined, async (url) =>
+    new URL(url).hostname === "api.weather.yandex.ru"
+      ? jsonResponse(raw)
+      : pageResponse(),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("mixed", validKey)], { page: pageSource() });
+  await c.advance();
+  const api = await h.call("GET", "/state");
+  assert.equal(api.weather.forecastSource, "api");
+  assert.equal(api.weather.forecast[0].tempMin, 4);
+  assert.equal(api.weather.forecast[0].tempMax, 12);
+  await h.dispose();
+  const restarted = host(h.data.get(KEY), c.runtime);
+  await restarted.activate();
+  await c.advance(api.cache.page.nextRequestAt);
+  const page = await restarted.call("GET", "/state");
+  assert.equal(page.weather.provider, "yandex-page");
+  assert.equal(page.weather.temp, 8);
+  assert.equal(page.weather.forecastSource, "api");
+  assert.deepEqual(page.weather.forecast, api.weather.forecast);
+  await restarted.dispose();
+});
+
+for (const reason of ["no keys", "changed coordinates", "expired forecast"]) {
+  test(`website forecast replaces old API data with ${reason}`, async () => {
+    const weather = model.normalizeWeather(
+      fakeWeather(),
+      Date.parse("2026-10-30T08:00:00Z"),
+    );
+    weather.forecastSource = "api";
+    weather.location = { lat: 55.75, lon: 37.62 };
+    if (reason !== "expired forecast") weather.forecast[0].date = "2026-10-30";
+    if (reason === "changed coordinates") weather.location.lat = 1;
+    const c = clock(undefined, async () => pageResponse());
+    const h = host({ version: 1, weather }, c.runtime);
+    await h.activate();
+    await configurePage(h, {
+      keys: reason === "no keys" ? [] : [poolKey("mixed", validKey)],
+      lat: 55.75,
+      lon: 37.62,
+    });
+    // Isolate a scheduled website refresh without triggering a fresh API response.
+    const record = h.data.get(KEY);
+    record.usage.nextRequestAt = c.now() + 3600000;
+    // Restart restores persisted scheduling as well as forecast provenance.
+    await h.dispose();
+    const restarted = host(record, c.runtime);
+    await restarted.activate();
+    await c.advance();
+    const state = await restarted.call("GET", "/state");
+    assert.equal(state.weather.provider, "yandex-page");
+    assert.equal(state.weather.forecastSource, "page");
+    assert.deepEqual(state.weather.forecast, []);
+    await restarted.dispose();
+  });
+}
+
 test("page attempt counters reset on Moscow midnight while lifetime totals survive", async () => {
   const c = clock(Date.parse("2026-10-30T20:55:00Z"), async () =>
     pageResponse(),

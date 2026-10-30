@@ -162,6 +162,74 @@ function parsePage(html, location, fetchedAt = Date.now()) {
   const fact = current.fact;
   if (typeof fact.condition !== "string" || !fact.condition.trim())
     throw pageFormatError(html);
+  // The page supplies UTC timestamps and local clock labels, but no timezone.
+  // Derive a consistent offset from those pairs without using the machine zone.
+  const hourly = new Map();
+  const offsets = new Set();
+  for (const record of records.values())
+    walk(record, (node) => {
+      if (!node.className?.includes?.("AppHourlyItem_container__")) return;
+      let timestamp, clock, temperature;
+      walk(
+        node,
+        (child) => {
+          if (child.className?.includes?.("AppHourlyItem_time__")) {
+            timestamp = child.dateTime;
+            clock =
+              typeof child.children === "string"
+                ? /(?:^|\s)(\d{2}):(\d{2})$/.exec(child.children)
+                : null;
+          }
+          if (
+            child.className?.includes?.("AppHourlyItem_main__") &&
+            typeof child.children === "string"
+          ) {
+            const match = /^([+−-]?\d+(?:[.,]\d+)?)°$/.exec(child.children);
+            if (match)
+              temperature = Number(
+                match[1].replace("−", "-").replace(",", "."),
+              );
+          }
+        },
+        true,
+      );
+      if (
+        !clock ||
+        !Number.isFinite(temperature) ||
+        temperature < -100 ||
+        temperature > 70 ||
+        typeof timestamp !== "string" ||
+        !/^\d{4}-\d\d-\d\dT\d\d:\d\d:00(?:\.000)?Z$/.test(timestamp)
+      )
+        return;
+      const instant = Date.parse(timestamp);
+      const hour = Number(clock[1]),
+        minute = Number(clock[2]);
+      if (!Number.isFinite(instant) || hour > 23 || minute !== 0) return;
+      const utc = new Date(instant);
+      let offset =
+        hour * 60 + minute - (utc.getUTCHours() * 60 + utc.getUTCMinutes());
+      if (offset < -720) offset += 1440;
+      if (offset > 840) offset -= 1440;
+      offsets.add(offset);
+      // Conflicting duplicates invalidate this hour rather than inventing a range.
+      if (hourly.has(instant) && hourly.get(instant) !== temperature)
+        hourly.set(instant, null);
+      else if (!hourly.has(instant)) hourly.set(instant, temperature);
+    });
+  const hourlyParts = new Map();
+  if (offsets.size === 1) {
+    const offset = [...offsets][0];
+    for (const [instant, temperature] of hourly) {
+      if (!Number.isFinite(temperature)) continue;
+      const local = new Date(instant + offset * 60000);
+      const hour = local.getUTCHours();
+      const part = ["night", "morning", "day", "evening"][Math.floor(hour / 6)];
+      const key = `${local.toISOString().slice(0, 10)}:${part}`;
+      if (!hourlyParts.has(key)) hourlyParts.set(key, new Map());
+      hourlyParts.get(key).set(hour, temperature);
+    }
+  }
   const forecasts = [];
   const months = [
     "января",
@@ -222,11 +290,14 @@ function parsePage(html, location, fetchedAt = Date.now()) {
           },
           true,
         );
+        const hours = hourlyParts.get(`${day.date}:${name}`);
+        const temperatures =
+          hours?.size === 6 ? [...hours.values()] : [temperature];
         if (Number.isFinite(temperature))
           day.parts.push({
             part_name: name,
-            temp_min: temperature,
-            temp_max: temperature,
+            temp_min: Math.min(...temperatures),
+            temp_max: Math.max(...temperatures),
             condition: description || "unknown",
             daytime: ["night", "evening"].includes(name) ? "n" : "d",
             ...(iconUrl ? { iconUrl } : {}),
@@ -260,6 +331,7 @@ function parsePage(html, location, fetchedAt = Date.now()) {
   } catch {
     throw pageFormatError(html);
   }
+  weather.forecastSource = "page";
   weather.provider = "yandex-page";
   return weather;
 }
@@ -390,6 +462,8 @@ function parsePageAction(
     }
     // The lightweight action has no forecast. Keep its original dates and values.
     weather.forecast = previous.forecast;
+    if (previous.forecastSource)
+      weather.forecastSource = previous.forecastSource;
     weather.sunrise = previous.sunrise;
     weather.sunset = previous.sunset;
   }
