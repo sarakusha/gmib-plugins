@@ -499,9 +499,22 @@ body.compact .weather-slide {
   height: 100%;
 }
 body.compact .weather-footer {
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 0.34s ease,
+    transform 0.34s ease;
   top: auto;
   bottom: calc(1px * var(--scale));
   font-size: calc(8px * var(--scale));
+}
+body.compact.weather-details .weather-footer {
+  opacity: 1;
+  transform: translateY(0);
+}
+body.compact .weather-footer.out {
+  opacity: 0;
+  transform: translateY(5px);
 }
 body.compact .weather-current {
   min-height: 0;
@@ -545,6 +558,7 @@ body.compact .empty-weather {
     animation: none;
   }
   .weather-slide,
+  body.compact .weather-footer,
   .sky {
     transition: none;
   }

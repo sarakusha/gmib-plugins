@@ -344,6 +344,7 @@
         w < Math.max(settings.layout.leftWidth + 220, 520));
     clearTimeout(slideTimer);
     $("weather-slide").classList.remove("out");
+    document.querySelector(".weather-footer").classList.remove("out");
     document.body.classList.toggle("compact", compact);
     document.documentElement.style.setProperty(
       "--scale",
@@ -415,6 +416,15 @@
         : compact
           ? slides[slide % slides.length]
           : "current";
+    document.body.classList.toggle("weather-details", kind === "details");
+    document
+      .querySelector(".weather-footer")
+      .setAttribute(
+        "aria-hidden",
+        String(
+          !settings.appearance.showSource || (compact && kind !== "details"),
+        ),
+      );
     const weatherKind = `${compact}/${kind}`;
     const oldValues = new Map(
       weatherKind === lastWeatherKind
@@ -500,10 +510,13 @@
     lastSlide = now;
     const el = $("weather-slide");
     el.classList.add("out");
+    const footer = document.querySelector(".weather-footer");
+    footer.classList.add("out");
     slideTimer = setTimeout(() => {
       slide = (slide + 1) % count;
       render();
       el.classList.remove("out");
+      footer.classList.remove("out");
     }, 340);
   }
   function accept(data) {
