@@ -10,9 +10,10 @@ const {
   pageActionAssets,
   findPageAction,
 } = require("./weather-page.cjs");
+const { mergeForecast } = require("./weather-forecast.cjs");
 const DAY = 86400000;
 // Bump when parsing changes require rebuilding weather from full HTML.
-const PAGE_PARSER_REVISION = 1;
+const PAGE_PARSER_REVISION = 2;
 const pageDefaults = Object.freeze({
   enabled: false,
   url: "",
@@ -307,32 +308,20 @@ function createPageService({
       if (isDisposed()) return;
       const current = getRecord(),
         next = pageCacheAt(current.pageCache, now());
-      // Website facts may refresh between API calls, but must not replace
-      // still usable API forecast ranges with a different presentation.
-      const previous = current.weather;
-      if (
-        weather &&
-        current.source.keys.some((key) => key.apiKey) &&
-        previous.forecastSource === "api" &&
-        previous.location.lat === weather.location.lat &&
-        previous.location.lon === weather.location.lon
-      ) {
-        const parts = new Intl.DateTimeFormat("en", {
-          timeZone: current.settings.clock.timeZone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(now());
-        const field = (type) => parts.find((part) => part.type === type).value;
-        const today = `${field("year")}-${field("month")}-${field("day")}`;
-        if (previous.forecast.some((part) => part.date >= today)) {
-          weather.forecast = previous.forecast;
-          weather.forecastSource = "api";
-        }
-      }
+      let forecastCache = current.forecastCache;
+      if (weather)
+        ({ weather, forecastCache } = mergeForecast(
+          current,
+          weather,
+          "page",
+          !background,
+          now(),
+        ));
       await persist({
         ...current,
-        ...(weather ? { weather, testResponse: testResponse(weather) } : {}),
+        ...(weather
+          ? { weather, forecastCache, testResponse: testResponse(weather) }
+          : {}),
         pageCache: {
           ...next,
           ...success,

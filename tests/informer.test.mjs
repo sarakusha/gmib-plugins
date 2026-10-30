@@ -1661,6 +1661,42 @@ for (const reason of ["no keys", "changed coordinates", "expired forecast"]) {
   });
 }
 
+test("removing API keys in frozen mode immediately reveals the cached page forecast", async () => {
+  const api = model.normalizeWeather(
+    fakeWeather(),
+    Date.parse("2026-10-30T09:00:00Z"),
+  );
+  api.forecastSource = "api";
+  api.forecast = api.forecast.map((p) => ({ ...p, date: "2026-10-30" }));
+  const page = { ...structuredClone(api), forecastSource: "page" };
+  page.forecast[0].tempMin = 5;
+  page.forecast[0].tempMax = 10;
+  const c = clock();
+  const h = host(
+    { version: 1, weather: api, forecastCache: { api, page } },
+    c.runtime,
+  );
+  await h.activate();
+  await configurePage(h, {
+    keys: [poolKey("mixed", validKey)],
+    useLastResponse: true,
+  });
+  assert.equal(
+    (await h.call("GET", "/state")).weather.forecast.find(
+      (p) => p.part === "day",
+    ).tempMin,
+    0,
+  );
+  const removed = await configurePage(h, { keys: [], useLastResponse: true });
+  assert.equal(
+    removed.weather.forecast.find((p) => p.part === "day").tempMin,
+    5,
+  );
+  assert.equal(removed.weather.forecastSource, "page");
+  assert.equal(c.requests.length, 0);
+  await h.dispose();
+});
+
 test("page attempt counters reset on Moscow midnight while lifetime totals survive", async () => {
   const c = clock(Date.parse("2026-10-30T20:55:00Z"), async () =>
     pageResponse(),
@@ -1898,7 +1934,7 @@ test("parser upgrade rebuilds old page cache on schedule without conditional GET
   assert.notEqual(options.method, "POST");
   assert.equal(new Headers(options.headers).has("if-none-match"), false);
   assert.equal(new Headers(options.headers).has("if-modified-since"), false);
-  assert.equal(restarted.data.get(KEY).pageCache.parserRevision, 1);
+  assert.equal(restarted.data.get(KEY).pageCache.parserRevision, 2);
   const rebuilt = await restarted.call("GET", "/state");
   assert.equal(rebuilt.weather.forecastSource, "page");
   await c.advance(rebuilt.cache.page.nextRequestAt);

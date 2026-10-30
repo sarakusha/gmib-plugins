@@ -10,6 +10,7 @@ const {
   restoreUsage,
   poolSignature,
 } = require("./weather-keys.cjs");
+const { mergeForecast } = require("./weather-forecast.cjs");
 const { requestUrl, adaptResponse } = require("./weather-providers.cjs");
 const {
   pageCacheAt,
@@ -225,7 +226,15 @@ function createWeatherService({
       counter.used = Math.max(0, counter.used - 1);
     }
     usage.keys[hash] = { ...counter, ...patch };
-    if (weather) weather.forecastSource = "api";
+    let forecastCache = record.forecastCache;
+    if (weather)
+      ({ weather, forecastCache } = mergeForecast(
+        record,
+        weather,
+        "api",
+        false,
+        now(),
+      ));
     const remaining = available(record, usage, now());
     usage.nextRequestAt = Math.min(
       resetAt(now()),
@@ -241,6 +250,7 @@ function createWeatherService({
       ...(weather
         ? {
             weather,
+            forecastCache,
             testResponse: testResponse(weather),
             pageCache: pageService.afterApiSuccess(record, now()),
           }

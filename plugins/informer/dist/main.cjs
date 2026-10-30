@@ -13,6 +13,10 @@ const {
   importTheme,
   restoreThemes,
 } = require("./themes.cjs");
+const {
+  restoreForecastCache,
+  mergeForecast,
+} = require("./weather-forecast.cjs");
 const STORAGE_KEY = "informer.v1";
 const { pageCacheAt } = require("./weather-page-service.cjs");
 const {
@@ -48,6 +52,7 @@ exports.activate = async (
     version: 1,
     settings,
     weather,
+    forecastCache: restoreForecastCache(saved.forecastCache, weather),
     themes: restoreThemes(saved.themes),
     source,
     usage: restoreUsage(saved.usage, now(), saved.cache?.attemptedAt, source),
@@ -186,8 +191,23 @@ exports.activate = async (
           pageCache.assetUrl = "";
           pageCache.fullFetchedAt = null;
         }
+        let forecastUpdate = {};
+        if (
+          (poolChanged || source.page.enabled !== record.source.page.enabled) &&
+          (record.forecastCache.api || record.forecastCache.page)
+        ) {
+          forecastUpdate = mergeForecast(
+            { ...record, settings, source },
+            record.weather,
+            null,
+            false,
+            now(),
+          );
+          forecastUpdate.testResponse = testResponse(forecastUpdate.weather);
+        }
         const result = await persist({
           ...record,
+          ...forecastUpdate,
           settings,
           source,
           usage,
