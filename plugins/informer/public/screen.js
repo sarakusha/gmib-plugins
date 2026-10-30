@@ -13,6 +13,7 @@
       theme: "auto",
       backdrop: "gradient",
       showSource: false,
+      sourceSize: 16,
       valueAnimation: "none",
       shadow: 0.6,
       dim: 0.15,
@@ -303,6 +304,10 @@
       root.setProperty(`--${key}-size`, `${v.size}px`);
       root.setProperty(`--${key}-color`, v.color);
     }
+    root.setProperty(
+      "--source-size",
+      `${settings.appearance.sourceSize ?? 16}px`,
+    );
     root.setProperty("--shade", String(settings.appearance.dim));
     document.querySelector(".weather-footer").hidden =
       !settings.appearance.showSource;

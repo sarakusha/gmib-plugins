@@ -14,6 +14,7 @@
       backdrop: "gradient",
       valueAnimation: "none",
       showSource: false,
+      sourceSize: 16,
       shadow: 0.6,
       dim: 0.15,
       outline: 0,

@@ -89,7 +89,9 @@ function validateSettings(value) {
       } else
         result[key][field] =
           key === "appearance" &&
-          ["backdrop", "showSource", "valueAnimation"].includes(field) &&
+          ["backdrop", "showSource", "sourceSize", "valueAnimation"].includes(
+            field,
+          ) &&
           value[key][field] === undefined
             ? defaults.appearance[field]
             : value[key][field];
@@ -136,6 +138,7 @@ function validateSettings(value) {
   }
   if (
     typeof appearance.showSource !== "boolean" ||
+    !number(appearance.sourceSize, 8, 160) ||
     !["gradient", "photo"].includes(appearance.backdrop) ||
     !["none", "flip"].includes(appearance.valueAnimation) ||
     !["auto", "day", "dusk", "night"].includes(appearance.theme) ||

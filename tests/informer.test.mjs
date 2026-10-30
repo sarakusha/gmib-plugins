@@ -173,6 +173,34 @@ test("backdrop migration preserves saved settings and accepts full dimming", () 
   assert.throws(() => model.validateSettings(restored));
 });
 
+test("logo size migrates old settings and persists custom size after restart", async () => {
+  const legacy = structuredClone(model.defaults);
+  delete legacy.appearance.sourceSize;
+  legacy.appearance.dim = 0.4;
+  const migrated = model.validateSettings(legacy);
+  assert.equal(migrated.appearance.sourceSize, 16);
+  assert.equal(migrated.appearance.dim, 0.4);
+  for (const invalid of [null, "24", 0, 7, 161, NaN]) {
+    assert.throws(() =>
+      model.validateSettings({
+        ...migrated,
+        appearance: { ...migrated.appearance, sourceSize: invalid },
+      }),
+    );
+  }
+  const h = host({ version: 1, settings: legacy });
+  await h.activate();
+  migrated.appearance.sourceSize = 32;
+  const saved = await h.call("PUT", "/settings", migrated);
+  assert.equal(saved.settings.appearance.sourceSize, 32);
+  const restarted = host(h.data.get(KEY));
+  await restarted.activate();
+  assert.equal(
+    (await restarted.call("GET", "/state")).settings.appearance.sourceSize,
+    32,
+  );
+});
+
 test("value animation defaults and legacy settings migrate; invalid values are rejected", async () => {
   const legacy = structuredClone(model.defaults);
   delete legacy.appearance.valueAnimation;
@@ -1873,11 +1901,13 @@ test("page resume is harmless without a configured live page source", async () =
 });
 
 test("missing action discovery is cached for a day while valid HTML weather continues updating", async () => {
-  const c = clock(undefined, async (url) => String(url) === actionAsset
-    ? new Response("/* No weather action in this build. */")
-    : new Response(`${pageHtml()}<script src="${actionAsset}"></script>`, {
-      headers: { "content-type": "text/html" },
-    }));
+  const c = clock(undefined, async (url) =>
+    String(url) === actionAsset
+      ? new Response("/* No weather action in this build. */")
+      : new Response(`${pageHtml()}<script src="${actionAsset}"></script>`, {
+          headers: { "content-type": "text/html" },
+        }),
+  );
   const h = host(undefined, c.runtime);
   await h.activate();
   await configurePage(h);

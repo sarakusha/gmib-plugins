@@ -56,11 +56,13 @@ test("themes persist independently through settings/weather writes and restart w
     const h = await host();
     const input = file("  Cafe\u0301  ");
     input.settings.clock.timeZone = "UTC";
+    input.settings.appearance.sourceSize = 28;
     input.settings.apiKey = "secret";
     input.settings.output = { screenId: 44 };
     const saved = await h.call("post", "/themes", input);
     assert.equal(saved.theme.name, "Café");
     assert.equal(saved.theme.settings.clock.timeZone, "UTC");
+    assert.equal(saved.theme.settings.appearance.sourceSize, 28);
     assert.equal(saved.theme.settings.apiKey, undefined);
     assert.equal(saved.theme.settings.output, undefined);
     saved.themes[0].name = "mutated";

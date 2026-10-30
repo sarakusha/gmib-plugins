@@ -2,6 +2,7 @@
   font-family: Arial, Helvetica, sans-serif;
   color: #fff;
   --scale: 1;
+  --source-size: 16px;
   --clock-size: 80px;
   --date-size: 19px;
   --weekday-size: 16px;
@@ -340,7 +341,7 @@ body.single-line.with-seconds #seconds-wrap {
 .source {
   display: block;
   width: auto;
-  height: calc(16px * var(--scale));
+  height: calc(var(--source-size) * var(--scale));
   margin-left: auto;
   overflow: visible;
 }
