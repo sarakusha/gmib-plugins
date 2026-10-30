@@ -472,21 +472,58 @@
           hidden
         >
           <h2>Вывод GMIB</h2>
-          <div id="output-status" class="status-block">Загрузка…</div>
-          <div class="fields">
+          <div id="output-status" class="status-block" role="status">
+            Загрузка…
+          </div>
+          <div class="fields output-fields">
             <label
-              >Экран<select id="screen-select">
+              >Широкий экран<select id="wide-screen-select">
                 <option value="">Выберите экран</option>
               </select></label
-            ><label class="check-inline"
+            >
+            <label
+              >Компактный экран<select id="compact-screen-select">
+                <option value="">Выберите экран</option>
+              </select></label
+            >
+            <label
+              >Текущий режим<select id="output-mode">
+                <option value="wide">Широкий</option>
+                <option value="compact">Компактный</option>
+              </select></label
+            >
+          </div>
+          <div class="checks">
+            <label
               ><input id="auto-start" type="checkbox" /> Запускать
               автоматически</label
             >
+            <label
+              ><input id="player-enabled" type="checkbox" disabled /> Управлять
+              плеером</label
+            >
           </div>
+          <div class="fields output-fields">
+            <label
+              >Плеер<select id="player-select" disabled>
+                <option value="">Выберите плеер</option>
+              </select></label
+            >
+          </div>
+          <p id="player-control-notice" class="hint" hidden>
+            Обновите GMIB для управления плеером.
+          </p>
+          <p class="hint">
+            Для переключения выберите два разных экрана. Настройки сохраняются
+            при выполнении команды.
+          </p>
+          <p id="output-error" class="error" role="alert" hidden></p>
           <div class="button-row">
-            <button id="start-output" type="button">
-              Назначить и запустить</button
-            ><button id="stop-output" type="button">Остановить вывод</button>
+            <button id="start-output" type="button" disabled>Показать</button>
+            <button id="stop-output" type="button" disabled>Скрыть</button>
+            <button id="toggle-output" type="button" disabled>
+              Переключить
+            </button>
           </div>
         </section>
         <div id="feedback" role="status" aria-live="polite"></div>

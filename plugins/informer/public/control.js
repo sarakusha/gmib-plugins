@@ -63,6 +63,10 @@
     ready = false,
     previewScreenId = null,
     outputLoading = false,
+    outputBusy = false,
+    outputBound = false,
+    outputRevision = 0,
+    outputCommandGeneration = 0,
     outputTimer = null,
     ws = null,
     reconnect = null,
@@ -650,33 +654,98 @@
       show(e.message, true);
     }
   }
+  function selectedOutputScreen(id) {
+    const value = $(id).value;
+    return output?.screens?.find((screen) => String(screen.id) === value);
+  }
+  function updateOutputControls() {
+    const supported = output?.features?.playerControl === true;
+    const wide = selectedOutputScreen("wide-screen-select");
+    const compact = selectedOutputScreen("compact-screen-select");
+    const current = $("output-mode").value === "compact" ? compact : wide;
+    const unavailable = outputBusy || !ready || !outputBound;
+    $("start-output").disabled = unavailable || !current;
+    $("stop-output").disabled = unavailable;
+    $("toggle-output").disabled =
+      unavailable || !wide || !compact || wide.id === compact.id;
+    $("player-enabled").disabled = !supported;
+    $("player-select").disabled = !supported || !$("player-enabled").checked;
+    $("player-control-notice").hidden = !outputBound || supported;
+  }
+  function syncOutputSelection(select, items, value, placeholder, label) {
+    const options = [
+      ["", placeholder],
+      ...items.map((item) => [String(item.id), label(item)]),
+    ];
+    if (value && !options.some(([id]) => id === value))
+      options.push([value, `Недоступен (ID: ${value})`]);
+    if (
+      select.options.length !== options.length ||
+      options.some(
+        ([id, text], index) =>
+          select.options[index].value !== id ||
+          select.options[index].text !== text,
+      )
+    )
+      select.replaceChildren(
+        ...options.map(([id, text]) => new Option(text, id)),
+      );
+    select.value = value;
+  }
+  function renderOutput(data, bindConfig = false) {
+    output = {
+      ...data,
+      screens: Array.isArray(data?.screens) ? data.screens : [],
+    };
+    const config = data?.config;
+    const bind = config && (!outputBound || bindConfig);
+    for (const [id, key] of [
+      ["wide-screen-select", "wideScreenId"],
+      ["compact-screen-select", "compactScreenId"],
+    ]) {
+      const value = bind ? String(config[key] ?? "") : $(id).value;
+      syncOutputSelection(
+        $(id),
+        output.screens,
+        value,
+        "Выберите экран",
+        screenLabel,
+      );
+    }
+    syncOutputSelection(
+      $("player-select"),
+      Array.isArray(data?.players) ? data.players : [],
+      bind ? String(config.playerId ?? "") : $("player-select").value,
+      "Выберите плеер",
+      (player) => `${player.name}${player.playing ? " · воспроизводится" : ""}`,
+    );
+    if (bind) {
+      $("output-mode").value = config.mode === "compact" ? "compact" : "wide";
+      $("auto-start").checked = config.autoStart === true;
+      $("player-enabled").checked = config.playerEnabled === true;
+      outputBound = true;
+    }
+    if (output.features?.playerControl !== true)
+      $("player-enabled").checked = false;
+    const status = output.status || {};
+    $("output-status").textContent = [
+      status.message || (status.active ? "Вывод запущен" : "Вывод не запущен"),
+      data?.message,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    updateOutputControls();
+    updatePreviewScreens();
+  }
   async function loadOutput() {
-    if (outputLoading || disposed || !ready) return;
+    if (outputLoading || outputBusy || disposed || !ready) return;
     outputLoading = true;
+    const generation = outputCommandGeneration;
     try {
       const data = await api("output");
-      const select = $("screen-select");
-      const previousSelection = select.value;
-      const firstLoad = output === null;
-      output = data;
-      const screens = Array.isArray(output?.screens) ? output.screens : [];
-      output.screens = screens;
-      syncScreenOptions(select, screens, true);
-      const status = output.status || {};
-      $("output-status").textContent =
-        status.message ||
-        (status.active ? "Вывод запущен" : "Вывод не запущен");
-      const bound = status.profile?.screenId;
-      const selected = firstLoad ? String(bound ?? "") : previousSelection;
-      const nextSelection = screens.some(
-        (screen) => String(screen.id) === selected,
-      )
-        ? selected
-        : "";
-      if (select.value !== nextSelection) select.value = nextSelection;
-      if (firstLoad)
-        $("auto-start").checked = Boolean(status.profile?.autoStart);
-      updatePreviewScreens();
+      // A command may have started while this poll was in flight.
+      if (!outputBusy && generation === outputCommandGeneration)
+        renderOutput(data);
     } catch (e) {
       $("output-status").textContent =
         `Состояние вывода недоступно: ${e.message}`;
@@ -687,6 +756,85 @@
       }
     } finally {
       outputLoading = false;
+      updateOutputControls();
+    }
+  }
+  function readOutputConfig(command) {
+    const wideScreenId = selectedOutputScreen("wide-screen-select")?.id ?? null;
+    const compactScreenId =
+      selectedOutputScreen("compact-screen-select")?.id ?? null;
+    const mode = $("output-mode").value;
+    if (
+      !(mode === "compact" ? compactScreenId !== null : wideScreenId !== null)
+    )
+      throw Error("Выберите экран для текущего режима.");
+    if (
+      command === "toggle" &&
+      (wideScreenId === null ||
+        compactScreenId === null ||
+        wideScreenId === compactScreenId)
+    )
+      throw Error("Для переключения выберите два разных экрана.");
+    const playerEnabled =
+      output?.features?.playerControl === true && $("player-enabled").checked;
+    const player = output?.players?.find(
+      (candidate) => String(candidate.id) === $("player-select").value,
+    );
+    if (playerEnabled && !player) throw Error("Выберите доступный плеер.");
+    return {
+      wideScreenId,
+      compactScreenId,
+      mode,
+      autoStart: $("auto-start").checked,
+      playerEnabled,
+      playerId: player?.id ?? null,
+    };
+  }
+  async function commandOutput(command) {
+    if (outputBusy || !ready || !outputBound) return;
+    outputBusy = true;
+    outputCommandGeneration += 1;
+    const revision = outputRevision;
+    updateOutputControls();
+    $("output-error").hidden = true;
+    try {
+      let config;
+      try {
+        config = readOutputConfig(command);
+      } catch (error) {
+        if (command !== "hide") throw error;
+      }
+      const data = await api("output", "PUT", {
+        command,
+        ...(config ? { config } : {}),
+      });
+      renderOutput(data, revision === outputRevision);
+      if (typeof data?.status?.active !== "boolean")
+        throw Error(
+          "GMIB не подтвердил состояние вывода. Обновите состояние и повторите попытку.",
+        );
+      if (command !== "hide" && !data.status.active)
+        throw Error(
+          data.status.message || data.message || "GMIB не запустил вывод.",
+        );
+      if (command === "hide" && data.status.active)
+        throw Error(
+          data.status.message || data.message || "GMIB не скрыл вывод.",
+        );
+      const mode = data.config?.mode === "compact" ? "компактный" : "широкий";
+      const message = data.status.active
+        ? `Показан ${mode} режим.`
+        : "Вывод скрыт.";
+      show(message);
+      toast(message);
+    } catch (e) {
+      $("output-error").textContent = e.message;
+      $("output-error").hidden = false;
+      show(e.message, true);
+      toast(e.message, true);
+    } finally {
+      outputBusy = false;
+      updateOutputControls();
     }
   }
   async function action(path, method, body, done) {
@@ -812,30 +960,22 @@
     updateSourceGuard();
     preview();
   });
-  $("start-output").addEventListener("click", async () => {
-    const screenId = $("screen-select").value;
-    if (!screenId) {
-      show("Выберите экран GMIB.", true);
-      return;
-    }
-    try {
-      await action(
-        "output",
-        "PUT",
-        {
-          screenId: Number(screenId),
-          pageId: "screen",
-          autoStart: $("auto-start").checked,
-        },
-        "Вывод назначен.",
-      );
-    } catch {}
-  });
-  $("stop-output").addEventListener("click", async () => {
-    try {
-      await action("output", "DELETE", undefined, "Вывод остановлен.");
-    } catch {}
-  });
+  for (const id of [
+    "wide-screen-select",
+    "compact-screen-select",
+    "output-mode",
+    "auto-start",
+    "player-enabled",
+    "player-select",
+  ]) {
+    $(id).addEventListener("change", () => {
+      outputRevision += 1;
+      updateOutputControls();
+    });
+  }
+  $("start-output").addEventListener("click", () => commandOutput("show"));
+  $("stop-output").addEventListener("click", () => commandOutput("hide"));
+  $("toggle-output").addEventListener("click", () => commandOutput("toggle"));
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   function activateTab(tab, focus = false, updateHash = true) {
     for (const candidate of tabs) {

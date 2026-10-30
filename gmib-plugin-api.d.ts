@@ -1,6 +1,6 @@
-/** Public authoring types for gmib Plugin API 1.1. */
+/** Public authoring types for gmib Plugin API 1.2. */
 
-export const GMIB_PLUGIN_API_VERSION: "1.1.0";
+export const GMIB_PLUGIN_API_VERSION: "1.2.0";
 
 export type PluginPermission =
   | "http.routes"
@@ -12,6 +12,7 @@ export type PluginPermission =
   | "services.consume"
   | "plugins.read"
   | "output.control"
+  | "player.control"
   | "nibus.read"
   | "nibus.write";
 
@@ -193,6 +194,14 @@ export type PluginOutputProfile = {
   autoStart: boolean;
 };
 export type PluginOutputApi = {
+  /** Plugin API 1.2, requires player.control; never focuses GMIB. */
+  listPlayers?: () => Promise<
+    Array<{ id: number; name: string; playing: boolean }>
+  >;
+  setPlayerState?: (state: {
+    playerId: number;
+    playing: boolean;
+  }) => Promise<void>;
   listScreens: () => Promise<
     Array<{ id: number; name: string; width?: number; height?: number }>
   >;
