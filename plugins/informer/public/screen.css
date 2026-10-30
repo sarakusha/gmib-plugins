@@ -334,11 +334,15 @@ body.single-line.with-seconds #seconds-wrap {
   justify-content: space-between;
   gap: 8px;
   font-size: calc(10px * var(--scale));
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--weather-color);
   white-space: nowrap;
 }
 .source {
+  display: block;
+  width: auto;
+  height: calc(16px * var(--scale));
   margin-left: auto;
+  overflow: visible;
 }
 .weather-current {
   display: flex;
