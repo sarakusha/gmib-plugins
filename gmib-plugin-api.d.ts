@@ -1,8 +1,20 @@
-/** Public authoring types for gmib Plugin API 1.1. */
+/** Public authoring types for gmib Plugin API 1.2. */
 
-export const GMIB_PLUGIN_API_VERSION: '1.1.0';
+export const GMIB_PLUGIN_API_VERSION: "1.2.0";
 
-export type PluginPermission = 'http.routes' | 'storage' | 'realtime' | 'output.pages' | 'database' | 'services.provide' | 'services.consume' | 'plugins.read' | 'output.control' | 'nibus.read' | 'nibus.write';
+export type PluginPermission =
+  | "http.routes"
+  | "storage"
+  | "realtime"
+  | "output.pages"
+  | "database"
+  | "services.provide"
+  | "services.consume"
+  | "plugins.read"
+  | "output.control"
+  | "player.control"
+  | "nibus.read"
+  | "nibus.write";
 
 export type PluginOutputPage = {
   id: string;
@@ -32,8 +44,8 @@ export type PluginManifest = {
   control?: PluginControlPage;
 };
 
-export type PluginHttpAccess = 'local' | 'authenticated';
-export type PluginHttpMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
+export type PluginHttpAccess = "local" | "authenticated";
+export type PluginHttpMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 
 export type PluginHttpRequest = {
   method: PluginHttpMethod;
@@ -48,7 +60,9 @@ export type PluginHttpResponse = {
   body?: unknown;
 };
 
-export type PluginHttpHandler = (request: PluginHttpRequest) => unknown | Promise<unknown>;
+export type PluginHttpHandler = (
+  request: PluginHttpRequest,
+) => unknown | Promise<unknown>;
 
 export type PluginHttpRouteOptions = {
   access?: PluginHttpAccess;
@@ -86,12 +100,16 @@ export type PluginContext = PluginServicesContext & {
   storage: {
     get: <T = unknown>(key: string, defaultValue?: T) => Promise<T | undefined>;
     set: (key: string, value: unknown) => Promise<void>;
-    update: <T = unknown>(key: string, updater: (value: T | undefined) => T) => Promise<T>;
+    update: <T = unknown>(
+      key: string,
+      updater: (value: T | undefined) => T,
+    ) => Promise<T>;
   };
   events: {
     publish: (event: string, data?: unknown) => void;
   };
-  output: {
+  nibus: PluginNibusApi;
+  output: PluginOutputApi & {
     registerPage: (page: PluginOutputPage) => Promise<void>;
   };
 };
@@ -111,27 +129,40 @@ export type PluginEventMessage<T = unknown> = {
   data: [T | null];
 };
 
-
-
 export type PluginUnsubscribe = () => void;
 export type PluginSqlValue = string | number | null | Uint8Array;
 export type PluginMigration = { version: number; sql: string };
 export type PluginSql = {
-  all: <T = Record<string, unknown>>(sql: string, params?: PluginSqlValue[]) => Promise<T[]>;
+  all: <T = Record<string, unknown>>(
+    sql: string,
+    params?: PluginSqlValue[],
+  ) => Promise<T[]>;
   get: <T = Record<string, unknown>>(
     sql: string,
     params?: PluginSqlValue[],
   ) => Promise<T | undefined>;
-  run: (sql: string, params?: PluginSqlValue[]) => Promise<{ changes: number; lastID: number }>;
+  run: (
+    sql: string,
+    params?: PluginSqlValue[],
+  ) => Promise<{ changes: number; lastID: number }>;
 };
 export type PluginDatabase = PluginSql & {
   transaction: <T>(work: (transaction: PluginSql) => Promise<T>) => Promise<T>;
 };
 export type PluginServicesContext = {
-  database: { open: (name: string, migrations: PluginMigration[]) => Promise<PluginDatabase> };
+  database: {
+    open: (
+      name: string,
+      migrations: PluginMigration[],
+    ) => Promise<PluginDatabase>;
+  };
   services: {
     provide: (name: string, version: string, service: object) => void;
-    require: <T extends object>(pluginId: string, name: string, range: string) => T;
+    require: <T extends object>(
+      pluginId: string,
+      name: string,
+      range: string,
+    ) => T;
   };
   plugins: { listSports: () => PluginSportStatus[] };
   lifecycle: { onDispose: (handler: () => void | Promise<void>) => void };
@@ -157,3 +188,90 @@ export type PluginSportStatus = PluginSport & {
   error?: string;
 };
 
+export type PluginOutputProfile = {
+  screenId: number;
+  pageId: string;
+  autoStart: boolean;
+};
+export type PluginOutputLayout = {
+  profile: PluginOutputProfile;
+  players?: Array<{ playerId: number; playing: boolean }>;
+};
+export type PluginOutputApi = {
+  /** Plugin API 1.2, requires player.control; never focuses GMIB. */
+  listPlayers?: () => Promise<
+    Array<{ id: number; name: string; playing: boolean }>
+  >;
+  setPlayerState?: (state: {
+    playerId: number;
+    playing: boolean;
+  }) => Promise<void>;
+  listScreens: () => Promise<
+    Array<{ id: number; name: string; width?: number; height?: number }>
+  >;
+  getStatus: () => Promise<{
+    profile?: PluginOutputProfile;
+    active: boolean;
+    message: string;
+  }>;
+  /** Optional Plugin API 1.2: coordinated replacement with readiness and rollback.
+   * Requires output.control; player changes additionally require player.control.
+   */
+  applyLayout?: (layout: PluginOutputLayout) => Promise<void>;
+  start: (profile: PluginOutputProfile) => Promise<void>;
+  stop: () => Promise<void>;
+};
+
+export type PluginTimerState = {
+  valueMs: number;
+  running: boolean;
+  mode: "game" | "rest" | "timeout";
+};
+export type PluginScoreboardState = {
+  home: number;
+  away: number;
+  period: number;
+};
+export type PluginPenaltyState = { number: string; remainingMs: number };
+export type PluginPenaltiesState = {
+  home: PluginPenaltyState[];
+  away: PluginPenaltyState[];
+};
+export type PluginTeamsState = { home: string; away: string };
+export type PluginNibusConnection = { id: string; name: string };
+export type PluginInformationReport = {
+  connectionId: string;
+  source: string;
+} & (
+  | { kind: "timer"; value: Partial<PluginTimerState> }
+  | { kind: "score"; side: "home" | "away"; value: number }
+  | { kind: "period"; value: number }
+  | { kind: "penalties"; value: PluginPenaltiesState }
+  | { kind: "teamName"; side: "home" | "away"; value: string }
+);
+export type PluginNibusOutput = {
+  sendTimer: (state: PluginTimerState) => Promise<void>;
+  sendScoreboard: (state: PluginScoreboardState) => Promise<void>;
+  sendPenalties: (state: PluginPenaltiesState) => Promise<void>;
+  sendTeams: (state: PluginTeamsState) => Promise<void>;
+  release: () => Promise<void>;
+};
+export type PluginNibusApi = {
+  listConnections: () => Promise<PluginNibusConnection[]>;
+  onConnectionChange: (
+    handler: (connections: PluginNibusConnection[]) => void,
+  ) => PluginUnsubscribe;
+  onInformationReport: (
+    filter: {
+      connectionId?: string;
+      source?: string;
+      kinds?: PluginInformationReport["kind"][];
+    },
+    handler: (report: PluginInformationReport) => void,
+  ) => PluginUnsubscribe;
+  acquireOutput: (options: {
+    connectionId: string;
+    target: string;
+    profile: "matchpad";
+  }) => Promise<PluginNibusOutput>;
+};

@@ -17,6 +17,7 @@ const {
   restoreForecastCache,
   mergeForecast,
 } = require("./weather-forecast.cjs");
+const { createOutputControl } = require("./output-control.cjs");
 const STORAGE_KEY = "informer.v1";
 const { pageCacheAt } = require("./weather-page-service.cjs");
 const {
@@ -51,6 +52,7 @@ exports.activate = async (
   let record = {
     version: 1,
     settings,
+    outputConfig: saved.outputConfig,
     weather,
     forecastCache: restoreForecastCache(saved.forecastCache, weather),
     themes: restoreThemes(saved.themes),
@@ -229,35 +231,61 @@ exports.activate = async (
       }),
     ),
   );
+  const outputControl = createOutputControl({
+    output,
+    getRecord: () => record,
+    persist,
+  });
   http.get(
     "/output",
-    route(async () =>
-      http.response(200, {
-        screens: await output.listScreens(),
-        status: await output.getStatus(),
-      }),
-    ),
+    route(async () => http.response(200, await outputControl.state())),
   );
   http.put(
     "/output",
-    route(async (request) => {
-      const { screenId, pageId, autoStart } = request.body || {};
-      if (
-        !Number.isSafeInteger(screenId) ||
-        pageId !== "screen" ||
-        typeof autoStart !== "boolean"
-      )
-        return error(422, "Выберите экран GMIB");
-      await output.start({ screenId, pageId, autoStart });
-      return http.response(200, { status: await output.getStatus() });
-    }),
+    route((request) =>
+      serial(async () => {
+        try {
+          if (request.body?.command)
+            return http.response(
+              200,
+              await outputControl.command(
+                request.body.command,
+                request.body.config,
+              ),
+            );
+          // Preserve the original plugin-owned endpoint for older control pages.
+          const { screenId, pageId, autoStart } = request.body || {};
+          if (
+            !Number.isSafeInteger(screenId) ||
+            pageId !== "screen" ||
+            typeof autoStart !== "boolean"
+          )
+            return error(422, "Выберите экран GMIB");
+          await output.stop();
+          await output.start({ screenId, pageId, autoStart });
+          return http.response(200, await outputControl.state());
+        } catch (err) {
+          return error(err.status || 500, err.message);
+        }
+      }),
+    ),
   );
   http.delete(
     "/output",
-    route(async () => {
-      await output.stop();
-      return http.response(200, { status: await output.getStatus() });
-    }),
+    route(() =>
+      serial(async () => {
+        try {
+          return http.response(200, await outputControl.command("hide"));
+        } catch (err) {
+          return error(err.status || 500, err.message);
+        }
+      }),
+    ),
   );
+  await outputControl
+    .restore()
+    .catch((err) =>
+      logger.warn("Informer: не удалось восстановить плеер", err.message),
+    );
   weatherService.schedule();
 };

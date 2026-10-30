@@ -10,7 +10,7 @@ export const pluginsRoot = path.join(repositoryRoot, 'plugins');
 export const outputRoot = path.join(repositoryRoot, 'dist');
 
 const ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
-const allowedPermissions = new Set(['http.routes', 'storage', 'realtime', 'output.pages', 'database', 'services.provide', 'services.consume', 'plugins.read', 'output.control', 'nibus.read', 'nibus.write']);
+const allowedPermissions = new Set(['http.routes', 'storage', 'realtime', 'output.pages', 'database', 'services.provide', 'services.consume', 'plugins.read', 'output.control', 'player.control', 'nibus.read', 'nibus.write']);
 // ZIP stores calendar fields without a timezone. A local Date constructor therefore produces the
 // same metadata in every timezone, unlike parsing an absolute UTC timestamp.
 const fixedArchiveTime = new Date(2000, 0, 1, 0, 0, 0);
@@ -76,8 +76,8 @@ export const readManifest = async pluginId => {
   const version = requiredString(raw.version, 'version');
   if (!semver.valid(version)) throw new Error(`${pluginId}: version должна быть SemVer-версией`);
   const gmibApi = requiredString(raw.gmibApi, 'gmibApi');
-  if (!semver.validRange(gmibApi) || !semver.satisfies('1.1.0', gmibApi)) {
-    throw new Error(`${pluginId}: gmibApi должен включать Plugin API 1.1.0`);
+  if (!semver.validRange(gmibApi) || !semver.satisfies('1.2.0', gmibApi)) {
+    throw new Error(`${pluginId}: gmibApi должен включать Plugin API 1.2.0`);
   }
   requiredString(raw.name, 'name');
   if (raw.description !== undefined) requiredString(raw.description, 'description');

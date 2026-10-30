@@ -248,7 +248,8 @@ textarea:focus {
   margin-bottom: 30px;
   color: #17687c;
 }
-#feedback.error {
+#feedback.error,
+#output-error {
   color: #a94335;
 }
 .preview {
@@ -456,4 +457,12 @@ textarea:focus {
 
 .page-source .fields > label:first-child {
   grid-column: 1 / -1;
+}
+
+#output .button-row {
+  flex-wrap: wrap;
+}
+#output-error {
+  font-size: 13px;
+  line-height: 1.5;
 }

@@ -75,6 +75,54 @@ const russianConditions = {
   гроза: "thunderstorm",
 };
 const pageIcon = yandexIconUrl;
+// Yandex's WeatherIcon component uses this ordered sprite atlas in Flight
+// style["--icon"], not an <img src>. Verified against its published frontend
+// chunks 5763-84daf4b01d83c9fd.js and 3885-12467b2f8620834d.js.
+const pageSpriteIcons = [
+  "bkn_-ra_d",
+  "bkn_ra_d",
+  "bkn_+ra_d",
+  "bkn_-sn_d",
+  "bkn_sn_d",
+  "bkn_+sn_d",
+  "bkn_-ra_n",
+  "bkn_ra_n",
+  "bkn_+ra_n",
+  "bkn_-sn_n",
+  "bkn_sn_n",
+  "bkn_+sn_n",
+  "ovc_-ra",
+  "ovc_ra",
+  "ovc_+ra",
+  "ovc_-sn",
+  "ovc_sn",
+  "ovc_+sn",
+  "ovc_ra_sn",
+  "ovc_ha",
+  "ovc_ts",
+  "ovc_ts_ra",
+  "ovc_ts_ha",
+  "bkn_d",
+  "bkn_n",
+  "ovc",
+  "skc_d",
+  "skc_n",
+];
+function pageForecastIcon(node) {
+  const direct = pageIcon(node.src);
+  if (direct) return direct;
+  const sprite = node.style?.["--icon"];
+  if (
+    !Number.isInteger(sprite) ||
+    sprite < 0 ||
+    sprite >= pageSpriteIcons.length
+  )
+    return null;
+  return pageIcon(
+    `https://yastatic.net/weather/i/icons/confident/dark/svg/${pageSpriteIcons[sprite]}.svg`,
+  );
+}
+
 function parsePage(html, location, fetchedAt = Date.now()) {
   if (typeof html !== "string" || Buffer.byteLength(html) > MAX_PAGE_BYTES)
     throw pageFormatError(html);
@@ -223,7 +271,7 @@ function parsePage(html, location, fetchedAt = Date.now()) {
       hourlyParts.get(key).set(hour, temperature);
     }
   }
-  const forecasts = [];
+  const forecasts = new Map();
   const months = [
     "января",
     "февраля",
@@ -249,7 +297,6 @@ function parsePage(html, location, fetchedAt = Date.now()) {
     if (month - Number(baseDate.slice(5, 7)) > 6) year--;
     const day = {
       date: `${year}-${String(month).padStart(2, "0")}-${match[1].padStart(2, "0")}`,
-      parts: [],
     };
     walk(
       card,
@@ -279,15 +326,25 @@ function parsePage(html, location, fetchedAt = Date.now()) {
             if (area === `${prefix}-text` && typeof node.children === "string")
               description =
                 russianConditions[node.children.toLowerCase()] || "unknown";
-            if (area === `${prefix}-icon`) iconUrl = pageIcon(node.src);
+            if (area === `${prefix}-icon`) iconUrl ||= pageForecastIcon(node);
           },
           true,
         );
-        const hours = hourlyParts.get(`${day.date}:${name}`);
+        // Website cards run morning → day → evening → the following night.
+        // API forecast parts already use calendar dates; adapt only page cards.
+        const partDate =
+          name === "night"
+            ? new Date(Date.parse(`${day.date}T00:00:00Z`) + 86400000)
+                .toISOString()
+                .slice(0, 10)
+            : day.date;
+        const hours = hourlyParts.get(`${partDate}:${name}`);
         const temperatures =
           hours?.size === 6 ? [...hours.values()] : [temperature];
-        if (Number.isFinite(temperature))
-          day.parts.push({
+        if (Number.isFinite(temperature)) {
+          if (!forecasts.has(partDate))
+            forecasts.set(partDate, { date: partDate, parts: [] });
+          forecasts.get(partDate).parts.push({
             part_name: name,
             temp_min: Math.min(...temperatures),
             temp_max: Math.max(...temperatures),
@@ -295,10 +352,10 @@ function parsePage(html, location, fetchedAt = Date.now()) {
             daytime: ["night", "evening"].includes(name) ? "n" : "d",
             ...(iconUrl ? { iconUrl } : {}),
           });
+        }
       },
       true,
     );
-    forecasts.push(day);
   }
   const iconUrl = pageIcon(fact.iconUrl || fact.icon);
   let weather;
@@ -317,7 +374,9 @@ function parsePage(html, location, fetchedAt = Date.now()) {
           humidity: fact.humidity,
           ...(iconUrl ? { iconUrl } : {}),
         },
-        forecasts,
+        forecasts: [...forecasts.values()].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        ),
       },
       fetchedAt,
     );
