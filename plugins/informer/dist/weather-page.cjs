@@ -2,7 +2,7 @@
 const {
   normalizeWeather,
   restoreWeather,
-  safeIconUrl,
+  yandexIconUrl,
 } = require("./model.cjs");
 const MAX_PAGE_BYTES = 4 * 1024 * 1024;
 function validatePageUrl(value) {
@@ -74,14 +74,7 @@ const russianConditions = {
   "дождь со снегом": "wet-snow",
   гроза: "thunderstorm",
 };
-function pageIcon(value) {
-  const direct = safeIconUrl(value);
-  if (direct) return direct;
-  // The page's fact.icon is the Yandex icon identifier, never arbitrary URL content.
-  return typeof value === "string" && /^[a-z][a-z0-9_\-]{0,39}$/.test(value)
-    ? `https://yastatic.net/weather/i/icons/confident/dark/svg/${value}.svg`
-    : null;
-}
+const pageIcon = yandexIconUrl;
 function parsePage(html, location, fetchedAt = Date.now()) {
   if (typeof html !== "string" || Buffer.byteLength(html) > MAX_PAGE_BYTES)
     throw pageFormatError(html);

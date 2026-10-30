@@ -76,3 +76,29 @@ test("restoring informers cache preserves its already normalized dates", () => {
   const weather = normalizeWeather(sample);
   assert.deepEqual(restoreWeather(weather), weather);
 });
+
+test("API weather uses provider icon codes for current weather and forecast", () => {
+  const raw = structuredClone(sample);
+  raw.fact.icon = "skc_d";
+  raw.fact.condition = "partly-cloudy";
+  raw.forecast.parts[0].icon = "bkn_n";
+  const weather = normalizeWeather(raw);
+  assert.equal(
+    weather.iconUrl,
+    "https://yastatic.net/weather/i/icons/confident/dark/svg/skc_d.svg",
+  );
+  assert.equal(weather.condition, "partly-cloudy");
+  assert.equal(
+    weather.forecast[0].iconUrl,
+    "https://yastatic.net/weather/i/icons/confident/dark/svg/bkn_n.svg",
+  );
+  assert.deepEqual(restoreWeather(weather), weather);
+  for (const icon of [
+    "../unsafe",
+    "https://evil.example/icon.svg",
+    'x" onerror=alert(1)',
+  ]) {
+    raw.fact.icon = icon;
+    assert.equal(normalizeWeather(raw).iconUrl, undefined);
+  }
+});

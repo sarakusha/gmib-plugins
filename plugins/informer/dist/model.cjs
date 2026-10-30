@@ -52,6 +52,14 @@ function safeIconUrl(value) {
   }
 }
 
+function yandexIconUrl(value) {
+  const direct = safeIconUrl(value);
+  if (direct) return direct;
+  return typeof value === "string" && /^[a-z][a-z0-9_\-]{0,39}$/.test(value)
+    ? `https://yastatic.net/weather/i/icons/confident/dark/svg/${value}.svg`
+    : null;
+}
+
 function validateSettings(value) {
   if (!object(value)) fail("Настройки должны быть объектом");
   const result = structuredClone(defaults);
@@ -213,8 +221,8 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
         condition: text(part.condition, "unknown"),
         daytime: part.daytime === "n" ? "n" : "d",
         precipitationProbability: optional(part.prec_prob, 0, 100),
-        ...(safeIconUrl(part.iconUrl)
-          ? { iconUrl: safeIconUrl(part.iconUrl) }
+        ...(yandexIconUrl(part.iconUrl) || yandexIconUrl(part.icon)
+          ? { iconUrl: yandexIconUrl(part.iconUrl) || yandexIconUrl(part.icon) }
           : {}),
       });
     }
@@ -239,8 +247,8 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
     observedAt: observed === null ? null : observed * 1000,
     fetchedAt,
     temp: fact.temp,
-    ...(safeIconUrl(fact.iconUrl)
-      ? { iconUrl: safeIconUrl(fact.iconUrl) }
+    ...(yandexIconUrl(fact.iconUrl) || yandexIconUrl(fact.icon)
+      ? { iconUrl: yandexIconUrl(fact.iconUrl) || yandexIconUrl(fact.icon) }
       : {}),
     feelsLike: optional(fact.feels_like, -120, 80),
     condition: fact.condition,
@@ -321,3 +329,5 @@ exports.normalizeWeather = normalizeWeather;
 exports.restoreWeather = restoreWeather;
 
 exports.safeIconUrl = safeIconUrl;
+
+exports.yandexIconUrl = yandexIconUrl;
