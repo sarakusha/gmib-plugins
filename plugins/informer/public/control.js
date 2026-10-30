@@ -56,6 +56,8 @@
     draft = structuredClone(defaults),
     output = null,
     settingsSupported = true,
+    sourceSupported = false,
+    sourceBound = false,
     saving = false,
     ready = false,
     previewScreenId = null,
@@ -223,7 +225,16 @@
     }
     const frame = $("preview-frame");
     frame.contentWindow?.postMessage(
-      { type: "informer:preview", settings: draft, snapshot: previewSnapshot },
+      {
+        type: "informer:preview",
+        settings: draft,
+        snapshot: previewSnapshot,
+        source: {
+          useLastResponse: sourceSupported
+            ? $("use-last-response").checked
+            : true,
+        },
+      },
       location.origin,
     );
   }
@@ -305,28 +316,50 @@
     frame.style.transform = `scale(${scale})`;
     frame.style.left = `${Math.max(0, (holder.clientWidth - screen.width * scale) / 2)}px`;
   }
+  function bindSource() {
+    const source = snapshot?.source;
+    if (!sourceSupported) return;
+    $("latitude").value = source.lat;
+    $("longitude").value = source.lon;
+    $("daily-limit").value = source.dailyLimit;
+    $("use-last-response").checked = source.useLastResponse;
+    $("api-key").value = "";
+    $("api-key").placeholder = source.hasApiKey
+      ? "Ключ сохранён"
+      : "Введите ключ API";
+    sourceBound = true;
+  }
+  function readSource() {
+    if (!sourceSupported)
+      throw Error(
+        "Обновите backend Informer и перезапустите GMIB для настройки источника.",
+      );
+    for (const id of ["latitude", "longitude", "daily-limit"])
+      if (!$(id).validity.valid)
+        throw Error("Проверьте координаты и суточный лимит запросов.");
+    const source = {
+      lat: Number($("latitude").value),
+      lon: Number($("longitude").value),
+      dailyLimit: Number($("daily-limit").value),
+      useLastResponse: $("use-last-response").checked,
+    };
+    const apiKey = $("api-key").value.trim();
+    if (apiKey) source.apiKey = apiKey;
+    return source;
+  }
   function updateCache() {
-    const c = snapshot?.cache,
-      w = snapshot?.weather;
-    const date = (v) =>
-      v
-        ? new Intl.DateTimeFormat("ru-RU", {
-            dateStyle: "medium",
-            timeStyle: "short",
-          }).format(new Date(v))
-        : "—";
-    const origin =
-      {
-        sample: "демонстрационный образец",
-        capture: "однократная загрузка",
-        import: "импорт",
-      }[c?.origin] || "нет данных";
-    $("cache-status").textContent =
-      `Режим: сохранённый снимок\nПроисхождение: ${origin}\nПолучен: ${date(c?.fetchedAt)}\nНаблюдение: ${date(w?.observedAt)}\nПопытка запроса: ${date(c?.attemptedAt)}${c?.message ? `\n${c.message}` : ""}`;
-    $("capture").disabled = Boolean(c?.attemptedAt);
-    if (Number.isFinite(w?.location?.lat)) $("latitude").value = w.location.lat;
-    if (Number.isFinite(w?.location?.lon))
-      $("longitude").value = w.location.lon;
+    const c = snapshot?.cache;
+    const date = (value) => {
+      if (!value || !Number.isFinite(new Date(value).getTime())) return "—";
+      return new Intl.DateTimeFormat("ru-RU", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Moscow",
+      }).format(new Date(value));
+    };
+    $("cache-status").textContent = !sourceSupported
+      ? "Настройки источника недоступны. Перезапустите GMIB после обновления backend Informer."
+      : `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}\nСегодня: ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}; осталось: ${c?.remaining ?? 0}\nВсего запросов: ${c?.totalRequests ?? 0}\nСледующее обновление: ${date(c?.nextRequestAt)}\nСброс лимита (МСК): ${date(c?.resetAt)}\nПолучен ответ: ${date(c?.fetchedAt)}${c?.message ? `\n${c.message}` : ""}`;
   }
   function updateSnapshot(data, keepDraft = false) {
     if (!data || typeof data !== "object" || !data.settings) return;
@@ -338,6 +371,12 @@
       themeControls?.reload();
     }
     snapshot = data;
+    sourceSupported = Boolean(
+      data.source && typeof data.source.useLastResponse === "boolean",
+    );
+    $("source-notice").hidden = sourceSupported;
+    $("source-fields").disabled = !sourceSupported;
+    if (!sourceBound || !keepDraft) bindSource();
     settingsSupported =
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
       ["none", "flip"].includes(data.settings.appearance?.valueAnimation) &&
@@ -448,6 +487,17 @@
           "Backend не сохранил новые параметры. Перезапустите GMIB и обновите страницу.",
         );
       }
+      if (
+        path === "settings" &&
+        (!data?.source ||
+          ["lat", "lon", "dailyLimit", "useLastResponse"].some(
+            (key) => data.source[key] !== body.weatherSource[key],
+          ) ||
+          (body.weatherSource.apiKey && !data.source.hasApiKey))
+      )
+        throw Error(
+          "Backend не сохранил источник погоды. Перезапустите GMIB и обновите страницу.",
+        );
       if (data?.settings) updateSnapshot(data, path !== "settings");
       else await loadOutput();
       show(done);
@@ -470,7 +520,12 @@
           "Перезапустите GMIB, чтобы сохранять новые настройки Informer.",
         );
       readDraft();
-      await action("settings", "PUT", draft, "Настройки применены");
+      await action(
+        "settings",
+        "PUT",
+        { ...draft, weatherSource: readSource() },
+        "Настройки применены",
+      );
       toast("Настройки применены");
     } catch (e) {
       if (!$("feedback").textContent.includes(e.message)) show(e.message, true);
@@ -481,52 +536,7 @@
       $("save").disabled = !ready || !settingsSupported;
     }
   });
-  $("import").addEventListener("click", async () => {
-    let data;
-    try {
-      data = JSON.parse($("import-json").value);
-    } catch {
-      show("Введите корректный JSON ответа Яндекс Погоды.", true);
-      return;
-    }
-    try {
-      await action("weather/import", "POST", { data }, "Снимок импортирован.");
-      $("import-json").value = "";
-    } catch {}
-  });
-  $("capture").addEventListener("click", async () => {
-    const key = $("api-key").value,
-      lat = Number($("latitude").value),
-      lon = Number($("longitude").value);
-    if (
-      !key ||
-      !$("latitude").value ||
-      !$("longitude").value ||
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lon) ||
-      lat < -90 ||
-      lat > 90 ||
-      lon < -180 ||
-      lon > 180
-    ) {
-      show("Укажите ключ и допустимые координаты.", true);
-      return;
-    }
-    try {
-      await action(
-        "weather/capture",
-        "POST",
-        { apiKey: key, lat, lon },
-        "Прогноз получен и сохранён.",
-      );
-    } catch {
-      try {
-        updateSnapshot(await api("state"), true);
-      } catch {}
-    } finally {
-      $("api-key").value = "";
-    }
-  });
+  $("use-last-response").addEventListener("change", preview);
   $("start-output").addEventListener("click", async () => {
     const screenId = $("screen-select").value;
     if (!screenId) {

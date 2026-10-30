@@ -378,51 +378,55 @@
         >
           <h2>Источник погоды</h2>
           <p class="hint">
-            Первый выпуск работает с сохранённым снимком Яндекс Погоды.
-            Автоматическое обновление и датчик NiBUS пока не подключены.
+            Настройте обновление Яндекс Погоды и нажмите «Применить». Пустое
+            поле ключа сохраняет ранее заданный ключ.
           </p>
+          <div id="source-notice" class="status-block" role="status" hidden>
+            Обновите backend Informer, перезапустите GMIB и обновите страницу
+            для настройки источника.
+          </div>
           <div id="cache-status" class="status-block">Загрузка состояния…</div>
-          <details>
-            <summary>Импорт ответа Яндекс Погоды v2</summary>
+          <fieldset id="source-fields">
             <label
-              >JSON ответа<textarea
-                id="import-json"
-                rows="6"
-                spellcheck="false"
-                placeholder="Вставьте ответ Informers v2"
-              ></textarea></label
-            ><button id="import" type="button">Импортировать снимок</button>
-          </details>
-          <details>
-            <summary>Получить прогноз один раз</summary>
-            <p class="hint">
-              Один запрос на эту установку. Ключ используется только для запроса
-              и не сохраняется.
-            </p>
-            <div class="fields">
+              >Ключ API<input
+                id="api-key"
+                type="password"
+                autocomplete="new-password"
+            /></label>
+            <div class="source-coordinates">
               <label
-                >Ключ API<input
-                  id="api-key"
-                  type="password"
-                  autocomplete="new-password" /></label
-              ><label
                 >Широта<input
                   id="latitude"
                   type="number"
                   step="any"
                   min="-90"
-                  max="90" /></label
-              ><label
+                  max="90"
+                  required
+              /></label>
+              <label
                 >Долгота<input
                   id="longitude"
                   type="number"
                   step="any"
                   min="-180"
                   max="180"
+                  required
               /></label>
             </div>
-            <button id="capture" type="button">Получить и сохранить</button>
-          </details>
+            <label
+              >Суточный лимит<input
+                id="daily-limit"
+                type="number"
+                min="1"
+                max="10000"
+                step="1"
+                required
+            /></label>
+            <label class="check"
+              ><input id="use-last-response" type="checkbox" /> Использовать
+              последний ответ</label
+            >
+          </fieldset>
         </section>
         <section
           id="output"

@@ -645,3 +645,20 @@ body:not(.compact) .forecast-row {
     animation: none;
   }
 }
+
+.test-output {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 10;
+  pointer-events: none;
+  background: #ffeb00;
+  color: #871030;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font: 700 clamp(10px, 2.5vh, 22px)/1.2 sans-serif;
+  box-shadow: 0 1px 6px #0008;
+}
+.test-output[hidden] {
+  display: none;
+}

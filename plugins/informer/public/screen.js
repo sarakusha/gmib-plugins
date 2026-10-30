@@ -464,6 +464,7 @@
   function accept(data) {
     if (!data || typeof data !== "object" || !data.settings) return;
     snapshot = data;
+    $("test-output").hidden = data.source?.useLastResponse === false;
     if (!preview) applySettings(data.settings);
     else {
       updateSky(new Date());
@@ -513,6 +514,8 @@
       return;
     preview = true;
     if (event.data.snapshot) accept(event.data.snapshot);
+    if (event.data.source)
+      $("test-output").hidden = event.data.source.useLastResponse === false;
     if (event.data.settings) applySettings(event.data.settings);
   });
   addEventListener("resize", () => {
