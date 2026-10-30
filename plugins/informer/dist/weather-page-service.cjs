@@ -11,6 +11,8 @@ const {
   findPageAction,
 } = require("./weather-page.cjs");
 const DAY = 86400000;
+// Bump when parsing changes require rebuilding weather from full HTML.
+const PAGE_PARSER_REVISION = 1;
 const pageDefaults = Object.freeze({
   enabled: false,
   url: "",
@@ -49,6 +51,8 @@ function pageCacheAt(saved, at) {
   const header = (v) =>
     typeof v === "string" && v.length <= 512 && !/[\r\n]/.test(v) ? v : "";
   return {
+    parserRevision:
+      value.parserRevision === PAGE_PARSER_REVISION ? PAGE_PARSER_REVISION : 0,
     day: dayAt(at),
     attempts: value.day === dayAt(at) ? count(value.attempts) : 0,
     total: count(value.total),
@@ -220,9 +224,11 @@ function createPageService({
     const cache = pageCacheAt(record.pageCache, at),
       interval = page.intervalMinutes * 60000;
     const url = identity(record),
-      same = cache.validatedFor === url;
+      same = cache.validatedFor === url,
+      currentParser = cache.parserRevision === PAGE_PARSER_REVISION;
     const background = Boolean(
       same &&
+      currentParser &&
       cache.actionId &&
       cache.fullFetchedAt !== null &&
       at - cache.fullFetchedAt < DAY &&
@@ -253,7 +259,7 @@ function createPageService({
           ...action.options,
           headers: { ...headers, ...action.options.headers },
         };
-      } else if (same && !cache.formatChanged) {
+      } else if (same && currentParser && !cache.formatChanged) {
         if (cache.etag) options.headers["If-None-Match"] = cache.etag;
         if (cache.lastModified)
           options.headers["If-Modified-Since"] = cache.lastModified;
@@ -272,7 +278,12 @@ function createPageService({
       let weather = null,
         discovered = {},
         success = {};
-      if (response.status === 304 && same && cache.fetchedAt !== null) {
+      if (
+        response.status === 304 &&
+        same &&
+        currentParser &&
+        cache.fetchedAt !== null
+      ) {
         success = { fullFetchedAt: now() };
       } else {
         if (!response.ok) throw Error(`HTTP ${response.status}`);
@@ -286,6 +297,7 @@ function createPageService({
           weather = parsePage(text, record.source, now());
           discovered = await discover(text, cache, signal);
           success = {
+            parserRevision: PAGE_PARSER_REVISION,
             fullFetchedAt: now(),
             etag: response.headers.get("etag") || "",
             lastModified: response.headers.get("last-modified") || "",

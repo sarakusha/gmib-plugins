@@ -1874,6 +1874,37 @@ test("light page updates discover action once, retain optional weather and refre
   assert.equal((await h.call("GET", "/state")).weather.temp, 8);
   await h.dispose();
 });
+test("parser upgrade rebuilds old page cache on schedule without conditional GET then returns to light updates", async () => {
+  const c = lightClock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await configurePage(h);
+  await c.advance();
+  const state = await h.call("GET", "/state");
+  const saved = structuredClone(h.data.get(KEY));
+  delete saved.pageCache.parserRevision;
+  saved.pageCache.etag = '"old-html"';
+  saved.pageCache.lastModified = "Fri, 30 Oct 2026 08:00:00 GMT";
+  await h.dispose();
+  const restarted = host(saved, c.runtime);
+  await restarted.activate();
+  const before = c.requests.length;
+  await c.advance(state.cache.page.nextRequestAt - 1);
+  assert.equal(c.requests.length, before);
+  await c.advance(state.cache.page.nextRequestAt);
+  assert.equal(c.requests.length, before + 1);
+  const options = c.requests.at(-1)[1];
+  assert.notEqual(options.method, "POST");
+  assert.equal(new Headers(options.headers).has("if-none-match"), false);
+  assert.equal(new Headers(options.headers).has("if-modified-since"), false);
+  assert.equal(restarted.data.get(KEY).pageCache.parserRevision, 1);
+  const rebuilt = await restarted.call("GET", "/state");
+  assert.equal(rebuilt.weather.forecastSource, "page");
+  await c.advance(rebuilt.cache.page.nextRequestAt);
+  assert.equal(c.requests.at(-1)[1].method, "POST");
+  await restarted.dispose();
+});
+
 for (const [label, failure] of [
   ["expired action", () => new Response("Not Found", { status: 404 })],
   [
