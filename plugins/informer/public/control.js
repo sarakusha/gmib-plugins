@@ -29,11 +29,34 @@
     },
     slides: { seconds: 8, current: true, details: true, forecast: true },
   };
-  let themeControls = null;
+  let themeControls = null,
+    toastTimer = null;
+  function toast(message, error = false) {
+    clearTimeout(toastTimer);
+    const el = $("toast");
+    el.textContent = message;
+    el.classList.toggle("error", error);
+    el.hidden = false;
+    toastTimer = setTimeout(
+      () => {
+        el.hidden = true;
+      },
+      error ? 6500 : 3500,
+    );
+  }
+  function unavailable() {
+    ready = false;
+    document.body.classList.add("gmib-unavailable");
+    $("offline-notice").hidden = false;
+    $("connection").textContent = "GMIB не запущен";
+    $("save").disabled = true;
+    themeControls?.refresh();
+  }
   let snapshot = null,
     draft = structuredClone(defaults),
     output = null,
     settingsSupported = true,
+    saving = false,
     ready = false,
     previewScreenId = null,
     outputLoading = false,
@@ -79,12 +102,19 @@
       : `Ошибка запроса (${status})`;
   }
   async function api(path, method = "GET", body) {
-    const response = await fetch(`api/${path}`, {
-      method,
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: "no-store",
-    });
+    let response;
+    try {
+      response = await fetch(`api/${path}`, {
+        method,
+        headers:
+          body === undefined ? {} : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store",
+      });
+    } catch {
+      unavailable();
+      throw Error("Запустите GMIB на этом компьютере и повторите попытку.");
+    }
     let data;
     try {
       data = await response.json();
@@ -300,6 +330,13 @@
   }
   function updateSnapshot(data, keepDraft = false) {
     if (!data || typeof data !== "object" || !data.settings) return;
+    const recovering = document.body.classList.contains("gmib-unavailable");
+    document.body.classList.remove("gmib-unavailable");
+    $("offline-notice").hidden = true;
+    if (recovering) {
+      show("");
+      themeControls?.reload();
+    }
     snapshot = data;
     settingsSupported =
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
@@ -307,7 +344,7 @@
       typeof data.settings.appearance?.showSource === "boolean" &&
       Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
     $("runtime-notice").hidden = settingsSupported;
-    $("save").disabled = !settingsSupported;
+    $("save").disabled = saving || !ready || !settingsSupported;
     themeControls?.refresh();
     if (!keepDraft) {
       draft = structuredClone(data.settings);
@@ -338,15 +375,16 @@
     try {
       const data = await api("state");
       ready = true;
-      updateSnapshot(data);
+      updateSnapshot(data, snapshot !== null);
       await loadOutput();
     } catch (e) {
-      $("connection").textContent = "Нет связи";
+      if (!document.body.classList.contains("gmib-unavailable"))
+        $("connection").textContent = "Не удалось загрузить настройки";
       show(e.message, true);
     }
   }
   async function loadOutput() {
-    if (outputLoading || disposed) return;
+    if (outputLoading || disposed || !ready) return;
     outputLoading = true;
     try {
       const data = await api("output");
@@ -422,15 +460,25 @@
     .querySelectorAll("[data-path],[data-date-option]")
     .forEach((input) => input.addEventListener("input", preview));
   $("save").addEventListener("click", async () => {
+    if (saving || !ready) return;
+    saving = true;
+    $("save").disabled = true;
+    $("save").textContent = "Применение…";
     try {
       if (!settingsSupported)
         throw Error(
           "Перезапустите GMIB, чтобы сохранять новые настройки Informer.",
         );
       readDraft();
-      await action("settings", "PUT", draft, "Настройки сохранены.");
+      await action("settings", "PUT", draft, "Настройки применены");
+      toast("Настройки применены");
     } catch (e) {
       if (!$("feedback").textContent.includes(e.message)) show(e.message, true);
+      toast(e.message, true);
+    } finally {
+      saving = false;
+      $("save").textContent = "Применить";
+      $("save").disabled = !ready || !settingsSupported;
     }
   });
   $("import").addEventListener("click", async () => {
@@ -582,7 +630,9 @@
       });
       ws.addEventListener("close", () => {
         if (disposed) return;
-        $("connection").textContent = "Нет realtime-связи";
+        if (!document.body.classList.contains("gmib-unavailable"))
+          $("connection").textContent = "Восстанавливаем связь…";
+        load();
         reconnect = setTimeout(connect, 3000);
       });
     } catch {
@@ -591,6 +641,7 @@
   }
   addEventListener("pagehide", () => {
     disposed = true;
+    clearTimeout(toastTimer);
     clearTimeout(reconnect);
     clearInterval(outputTimer);
     previewObserver.disconnect();
@@ -617,6 +668,7 @@
       preview();
     },
   });
+  $("retry-connection").addEventListener("click", load);
   outputTimer = setInterval(loadOutput, 5000);
   load();
   connect();

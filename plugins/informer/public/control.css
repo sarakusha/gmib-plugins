@@ -354,3 +354,28 @@ textarea:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
+
+.toast {
+  position: fixed;
+  right: 24px;
+  top: 80px;
+  z-index: 100;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 14px 20px;
+  border-radius: 9px;
+  background: #17687c;
+  color: white;
+  box-shadow: 0 5px 24px #20334333;
+}
+.toast.error {
+  background: #9c3b31;
+}
+.offline-notice {
+  max-width: 580px;
+  margin: 60px auto;
+  padding: 24px;
+  line-height: 1.6;
+}
+.gmib-unavailable .workspace {
+  display: none;
+}

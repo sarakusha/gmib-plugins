@@ -81,7 +81,7 @@
           setDraft(theme.settings);
           $("theme-name").value = theme.name;
           show(
-            "Тема загружена в предпросмотр. Сохраните настройки для вывода на экран.",
+            "Тема загружена в предпросмотр. Нажмите «Применить» для вывода на экран.",
           );
         }),
       );
@@ -133,25 +133,27 @@
             setDraft(data.theme.settings);
             $("theme-name").value = data.theme.name;
             show(
-              "Тема импортирована и загружена в предпросмотр. Сохраните настройки для вывода на экран.",
+              "Тема импортирована и загружена в предпросмотр. Нажмите «Применить» для вывода на экран.",
             );
           } finally {
             input.value = "";
           }
         }),
       );
-      api("themes")
-        .then((data) => {
-          available = true;
-          catalog(data);
-        })
-        .catch(() => {
-          available = false;
-          controls();
-          $("theme-status").textContent =
-            "Хранилище тем недоступно. После обновления плагина перезапустите GMIB и обновите страницу.";
-        });
-      return { refresh: controls };
+      const reload = () =>
+        api("themes")
+          .then((data) => {
+            available = true;
+            catalog(data);
+          })
+          .catch(() => {
+            available = false;
+            controls();
+            $("theme-status").textContent =
+              "Хранилище тем недоступно. После обновления плагина перезапустите GMIB и обновите страницу.";
+          });
+      reload();
+      return { refresh: controls, reload };
     },
   };
 })();

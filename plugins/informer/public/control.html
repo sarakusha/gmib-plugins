@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Информер · управление</title>
     <link rel="stylesheet" href="control.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <meta name="theme-color" content="#17687c" />
   </head>
   <body>
     <header class="topbar">
@@ -13,12 +17,23 @@
         <h1>Часы и погода</h1>
       </div>
       <div class="top-actions">
-        <span id="connection" role="status">Подключение…</span
-        ><button id="save" class="primary" type="button">
-          Сохранить настройки
+        <span id="connection" role="status">Подключение…</span>
+        <button id="install-app" type="button" hidden>
+          Установить приложение</button
+        ><button id="save" disabled class="primary" type="button">
+          Применить
         </button>
       </div>
     </header>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <section id="offline-notice" class="offline-notice" hidden>
+      <h2>Запустите GMIB</h2>
+      <p>
+        Нет связи с GMIB на этом компьютере. Запустите его — подключение
+        восстановится автоматически.
+      </p>
+      <button id="retry-connection" type="button">Проверить снова</button>
+    </section>
     <main class="workspace">
       <nav
         class="nav"
@@ -478,6 +493,7 @@
         </p>
       </aside>
     </main>
+    <script src="pwa.js"></script>
     <script src="themes.js"></script>
     <script src="control.js"></script>
   </body>
