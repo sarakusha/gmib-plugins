@@ -75,6 +75,54 @@ const russianConditions = {
   гроза: "thunderstorm",
 };
 const pageIcon = yandexIconUrl;
+// Yandex's WeatherIcon component uses this ordered sprite atlas in Flight
+// style["--icon"], not an <img src>. Verified against its published frontend
+// chunks 5763-84daf4b01d83c9fd.js and 3885-12467b2f8620834d.js.
+const pageSpriteIcons = [
+  "bkn_-ra_d",
+  "bkn_ra_d",
+  "bkn_+ra_d",
+  "bkn_-sn_d",
+  "bkn_sn_d",
+  "bkn_+sn_d",
+  "bkn_-ra_n",
+  "bkn_ra_n",
+  "bkn_+ra_n",
+  "bkn_-sn_n",
+  "bkn_sn_n",
+  "bkn_+sn_n",
+  "ovc_-ra",
+  "ovc_ra",
+  "ovc_+ra",
+  "ovc_-sn",
+  "ovc_sn",
+  "ovc_+sn",
+  "ovc_ra_sn",
+  "ovc_ha",
+  "ovc_ts",
+  "ovc_ts_ra",
+  "ovc_ts_ha",
+  "bkn_d",
+  "bkn_n",
+  "ovc",
+  "skc_d",
+  "skc_n",
+];
+function pageForecastIcon(node) {
+  const direct = pageIcon(node.src);
+  if (direct) return direct;
+  const sprite = node.style?.["--icon"];
+  if (
+    !Number.isInteger(sprite) ||
+    sprite < 0 ||
+    sprite >= pageSpriteIcons.length
+  )
+    return null;
+  return pageIcon(
+    `https://yastatic.net/weather/i/icons/confident/dark/svg/${pageSpriteIcons[sprite]}.svg`,
+  );
+}
+
 function parsePage(html, location, fetchedAt = Date.now()) {
   if (typeof html !== "string" || Buffer.byteLength(html) > MAX_PAGE_BYTES)
     throw pageFormatError(html);
@@ -279,7 +327,7 @@ function parsePage(html, location, fetchedAt = Date.now()) {
             if (area === `${prefix}-text` && typeof node.children === "string")
               description =
                 russianConditions[node.children.toLowerCase()] || "unknown";
-            if (area === `${prefix}-icon`) iconUrl = pageIcon(node.src);
+            if (area === `${prefix}-icon`) iconUrl ||= pageForecastIcon(node);
           },
           true,
         );

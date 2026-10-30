@@ -179,12 +179,28 @@ test("light Flight parser retains forecast only for identical coordinates and ac
   }
 });
 
-function hourlyForecastPage(hours, date = "2026-10-31", part = "night") {
+function hourlyForecastPage(
+  hours,
+  date = "2026-10-31",
+  part = "night",
+  iconProps,
+) {
   const element = (type, key, props) => ["$", type, key, props];
   const card = element("li", "31 октября", {
     className: "AppForecastDay_dayCard_test",
     children: element("section", part, {
-      children: { style: { gridArea: `${part[0]}-temp` }, children: "+20°" },
+      children: [
+        { style: { gridArea: `${part[0]}-temp` }, children: "+20°" },
+        {
+          style: { gridArea: `${part[0]}-text` },
+          children: "облачно с прояснениями",
+        },
+        iconProps &&
+          element("div", null, {
+            ...iconProps,
+            style: { gridArea: `${part[0]}-icon`, ...iconProps.style },
+          }),
+      ],
     }),
   });
   const records = [
@@ -247,5 +263,78 @@ test("inconsistent local offsets and conflicting duplicate hours do not produce 
     const result = parsePage(hourlyForecastPage(hours), location);
     assert.equal(result.forecast[0].tempMin, 20);
     assert.equal(result.forecast[0].tempMax, 20);
+  }
+});
+
+test("forecast sprite icons preserve the provider's moon despite a cloudy caption and hourly aggregation", () => {
+  const result = parsePage(
+    hourlyForecastPage(nightHours(), "2026-10-31", "night", {
+      className: "style_weatherIcon__OE4YL AppForecastDayPart_icon__CUyCQ",
+      style: { "--icon": 27 },
+    }),
+    location,
+  );
+  const night = result.forecast[0];
+  assert.equal(
+    night.iconUrl,
+    "https://yastatic.net/weather/i/icons/confident/dark/svg/skc_n.svg",
+  );
+  assert.equal(night.condition, "cloudy");
+  assert.equal(night.daytime, "n");
+  assert.equal(night.tempMin, -2);
+  assert.equal(night.tempMax, 3);
+  assert.equal(result.forecastSource, "page");
+  assert.deepEqual(model.restoreWeather(result).forecast, result.forecast);
+});
+
+test("forecast sprite atlas includes clear, cloudy and precipitation day/night provider icons", () => {
+  for (const [sprite, code] of [
+    [0, "bkn_-ra_d"],
+    [2, "bkn_+ra_d"],
+    [6, "bkn_-ra_n"],
+    [11, "bkn_+sn_n"],
+    [12, "ovc_-ra"],
+    [17, "ovc_+sn"],
+    [18, "ovc_ra_sn"],
+    [22, "ovc_ts_ha"],
+    [23, "bkn_d"],
+    [24, "bkn_n"],
+    [25, "ovc"],
+    [26, "skc_d"],
+    [27, "skc_n"],
+  ]) {
+    const result = parsePage(
+      hourlyForecastPage([], "2026-10-31", "night", {
+        style: { "--icon": sprite },
+      }),
+      location,
+    );
+    assert.equal(
+      result.forecast[0].iconUrl,
+      `https://yastatic.net/weather/i/icons/confident/dark/svg/${code}.svg`,
+    );
+  }
+});
+
+test("forecast icons keep explicit provider URLs and ignore unknown sprite indices", () => {
+  const src = "https://yastatic.net/weather/i/icons/confident/dark/svg/ovc.svg";
+  const direct = parsePage(
+    hourlyForecastPage([], "2026-10-31", "night", {
+      src,
+      style: { "--icon": 27 },
+    }),
+    location,
+  );
+  assert.equal(direct.forecast[0].iconUrl, src);
+  for (const sprite of [-1, 28, 1.5, "27", null]) {
+    const result = parsePage(
+      hourlyForecastPage([], "2026-10-31", "night", {
+        src: "https://evil.example/weather.svg",
+        style: { "--icon": sprite },
+      }),
+      location,
+    );
+    assert.equal(result.forecast[0].iconUrl, undefined);
+    assert.equal(result.forecast[0].condition, "cloudy");
   }
 });
