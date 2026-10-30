@@ -387,12 +387,12 @@
           </div>
           <div id="cache-status" class="status-block">Загрузка состояния…</div>
           <fieldset id="source-fields">
-            <label
-              >Ключ API<input
-                id="api-key"
-                type="password"
-                autocomplete="new-password"
-            /></label>
+            <div id="weather-keys" class="weather-keys"></div>
+            <button id="add-weather-key" type="button">Добавить ключ</button>
+            <p class="hint">
+              До 10 ключей. Авто: 30 запросов — «Умный дом», 50 — «Для сайта».
+              Для ключей с общей квотой разделите её между ними.
+            </p>
             <div class="source-coordinates">
               <label
                 >Широта<input
@@ -413,18 +413,9 @@
                   required
               /></label>
             </div>
-            <label
-              >Суточный лимит<input
-                id="daily-limit"
-                type="number"
-                min="1"
-                max="10000"
-                step="1"
-                required
-            /></label>
             <label class="check"
-              ><input id="use-last-response" type="checkbox" /> Использовать
-              последний ответ</label
+              ><input id="use-last-response" type="checkbox" checked disabled />
+              Использовать последний ответ</label
             >
           </fieldset>
         </section>

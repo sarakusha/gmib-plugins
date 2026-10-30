@@ -503,7 +503,7 @@ test("weather source defaults are frozen; source settings persist privately and 
   const h = host(undefined, c.runtime);
   await h.activate();
   const initial = await h.call("GET", "/state");
-  assert.equal(initial.source.dailyLimit, 50);
+  assert.equal(initial.source.dailyLimit, 0);
   assert.equal(initial.source.useLastResponse, true);
   assert.equal(initial.source.hasApiKey, false);
   await c.advance();
@@ -511,7 +511,7 @@ test("weather source defaults are frozen; source settings persist privately and 
   const saved = await source(h, { useLastResponse: true });
   assert.equal(saved.source.hasApiKey, true);
   assert.equal(JSON.stringify(saved).includes(validKey), false);
-  assert.equal(h.data.get(KEY).source.apiKey, validKey);
+  assert.equal(h.data.get(KEY).source.keys[0].apiKey, validKey);
   const bad = {
     ...structuredClone(saved.settings),
     weatherSource: { ...saved.source, lat: 91 },
@@ -520,7 +520,7 @@ test("weather source defaults are frozen; source settings persist privately and 
   assert.equal((await h.call("PUT", "/settings", bad)).status, 422);
   assert.deepEqual((await h.call("GET", "/state")).settings, saved.settings);
   await source(h, { useLastResponse: true, apiKey: "" });
-  assert.equal(h.data.get(KEY).source.apiKey, validKey);
+  assert.equal(h.data.get(KEY).source.keys[0].apiKey, validKey);
   assert.equal(JSON.stringify(h.events).includes(validKey), false);
 });
 
@@ -612,7 +612,7 @@ test("daily budget resets at Moscow midnight while lifetime count survives", asy
   assert.equal(next.cache.totalRequests, 2);
 });
 
-for (const status of [403, 429, 500]) {
+for (const status of [403, 404, 429, 500]) {
   test(`HTTP ${status} counts an attempted request and preserves weather`, async () => {
     const c = clock(undefined, async () => jsonResponse({}, status));
     const h = host(undefined, c.runtime);
@@ -622,17 +622,21 @@ for (const status of [403, 429, 500]) {
     await c.advance();
     const state = await h.call("GET", "/state");
     assert.deepEqual(state.weather, before);
-    assert.equal(state.cache.usedToday, 1);
+    assert.equal(
+      state.cache.usedToday,
+      status === 403 || status === 404 ? 0 : 1,
+    );
+    assert.equal(state.cache.requestsToday, 1);
     assert.equal(state.cache.totalRequests, 1);
     assert.match(state.cache.message, new RegExp(String(status)));
-    if (status === 403 || status === 429) {
+    if (status === 403 || status === 404 || status === 429) {
       assert.equal(state.cache.nextRequestAt, state.cache.resetAt);
       const restartedClock = clock(c.now());
       const restarted = host(h.data.get(KEY), restartedClock.runtime);
       await restarted.activate();
       await source(restarted, {
         dailyLimit: 100,
-        apiKey: "another-valid-key-1234",
+        apiKey: validKey,
       });
       await restartedClock.advance(state.cache.resetAt - 1);
       assert.equal(restartedClock.requests.length, 0);
@@ -846,4 +850,520 @@ test("raising an exhausted daily limit recomputes pacing without an immediate re
   assert.equal(c.requests.length, 1);
   await c.advance(raised.cache.nextRequestAt);
   assert.equal(c.requests.length, 2);
+});
+
+const secondKey = "second-fictional-weather-key";
+const poolKey = (id, apiKey, type = "auto", dailyLimit = 10) => ({
+  id,
+  name: `Key ${id}`,
+  apiKey,
+  type,
+  dailyLimit,
+});
+async function pool(h, keys, extra = {}) {
+  const { settings } = await h.call("GET", "/state");
+  return h.call("PUT", "/settings", {
+    ...structuredClone(settings),
+    weatherSource: {
+      lat: 55.75,
+      lon: 37.62,
+      useLastResponse: false,
+      keys,
+      ...extra,
+    },
+  });
+}
+
+test("pool validates duplicate ids and secrets atomically and retains blank secrets by id", async () => {
+  const c = clock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const keys = [
+    poolKey("a", validKey, "home", 3),
+    poolKey("b", secondKey, "site", 7),
+  ];
+  const saved = await pool(h, keys, { useLastResponse: true });
+  assert.equal(saved.source.dailyLimit, 10);
+  assert.equal(saved.cache.remaining, 10);
+  assert.deepEqual(
+    saved.source.keys.map((k) => [k.id, k.type, k.hasApiKey]),
+    [
+      ["a", "home", true],
+      ["b", "site", true],
+    ],
+  );
+  for (const invalid of [
+    [keys[0], { ...keys[1], id: "a" }],
+    [keys[0], { ...keys[1], apiKey: validKey }],
+    Array.from({ length: 11 }, (_, i) =>
+      poolKey(`k${i}`, `fictional-weather-key-${i}`),
+    ),
+    [{ ...keys[0], type: "invalid" }],
+  ]) {
+    assert.equal((await pool(h, invalid)).status, 422);
+    assert.deepEqual((await h.call("GET", "/state")).source, saved.source);
+  }
+  await pool(
+    h,
+    [
+      { ...keys[1], apiKey: "" },
+      { ...keys[0], apiKey: "" },
+    ],
+    { useLastResponse: true },
+  );
+  assert.deepEqual(
+    h.data.get(KEY).source.keys.map((k) => k.apiKey),
+    [secondKey, validKey],
+  );
+  const exposed = JSON.stringify([
+    await h.call("GET", "/state"),
+    h.events,
+    await h.call("GET", "/themes"),
+  ]);
+  for (const secret of [validKey, secondKey])
+    assert.equal(exposed.includes(secret), false);
+  const ledger = Object.keys(h.data.get(KEY).usage.keys || {});
+  for (const fingerprint of ledger)
+    assert.equal(exposed.includes(fingerprint), false);
+  await c.advance();
+  assert.equal(c.requests.length, 0);
+});
+
+test("manual pool key types use their own endpoint and exhausted keys leave other budgets available", async () => {
+  const c = clock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [
+    poolKey("a", validKey, "home", 1),
+    poolKey("b", secondKey, "site", 1),
+  ]);
+  await c.advance();
+  assert.equal(new URL(c.requests[0][0]).pathname, "/v2/forecast");
+  let state = await h.call("GET", "/state");
+  assert.equal(state.cache.remaining, 1);
+  assert.equal(state.source.keys.find((k) => k.id === "a").remaining, 0);
+  assert.ok(state.cache.nextRequestAt >= c.now() + 60000);
+  await c.advance(state.cache.nextRequestAt);
+  assert.equal(c.requests.length, 2);
+  assert.equal(new URL(c.requests[1][0]).pathname, "/v2/informers");
+  assert.equal(c.requests[1][1].headers["X-Yandex-Weather-Key"], secondKey);
+  state = await h.call("GET", "/state");
+  assert.equal(state.cache.usedToday, 2);
+  assert.equal(state.cache.totalRequests, 2);
+  assert.equal(state.cache.remaining, 0);
+});
+
+for (const status of [401, 403, 404, 429]) {
+  test(`HTTP ${status} blocks only its pool key and schedules the other key`, async () => {
+    const c = clock(undefined, async (_url, options) =>
+      options.headers["X-Yandex-Weather-Key"] === validKey
+        ? jsonResponse({}, status)
+        : jsonResponse(fakeWeather()),
+    );
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [
+      poolKey("a", validKey, "home", 5),
+      poolKey("b", secondKey, "site", 5),
+    ]);
+    await c.advance();
+    let state = await h.call("GET", "/state");
+    assert.equal(c.requests.length, 1);
+    assert.equal(
+      state.source.keys.find((k) => k.id === "a").blockedUntil,
+      state.cache.resetAt,
+    );
+    assert.equal(state.source.keys.find((k) => k.id === "b").blockedUntil, 0);
+    assert.equal(state.cache.remaining, 5);
+    assert.equal(
+      state.source.keys.find((k) => k.id === "a").remaining,
+      status === 403 || status === 404 ? 5 : 4,
+    );
+    assert.equal(state.cache.requestsToday, 1);
+    assert.ok(state.cache.nextRequestAt < state.cache.resetAt);
+    await c.advance(state.cache.nextRequestAt);
+    assert.equal(c.requests.length, 2);
+    assert.equal(c.requests[1][1].headers["X-Yandex-Weather-Key"], secondKey);
+    state = await h.call("GET", "/state");
+    assert.equal(state.cache.totalRequests, 2);
+    assert.equal(state.cache.remaining, 4);
+  });
+}
+
+test("auto detection reserves both probes, caches the working type, and survives restart", async () => {
+  const response = async (url) =>
+    new URL(url).pathname === "/v2/forecast"
+      ? jsonResponse({}, 403)
+      : jsonResponse(fakeWeather());
+  const c = clock(undefined, response);
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("a", validKey, "auto", 5)]);
+  await c.advance();
+  assert.deepEqual(
+    c.requests.map(([url]) => new URL(url).pathname),
+    ["/v2/forecast", "/v2/informers"],
+  );
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.usedToday, 1);
+  assert.equal(state.cache.requestsToday, 2);
+  assert.equal(state.cache.remaining, 4);
+  assert.equal(state.source.keys[0].detectedType, "site");
+  assert.equal(state.source.keys[0].totalRequests, 2);
+  const publicData = JSON.stringify([
+    state,
+    h.events,
+    await h.call("GET", "/themes"),
+  ]);
+  assert.equal(publicData.includes(validKey), false);
+  const ledger = Object.keys(h.data.get(KEY).usage.keys);
+  assert.equal(ledger.length, 1);
+  for (const fingerprint of ledger)
+    assert.equal(publicData.includes(fingerprint), false);
+  h.dispose();
+  const next = clock(c.now(), response);
+  const restarted = host(h.data.get(KEY), next.runtime);
+  await restarted.activate();
+  await next.advance(
+    (await restarted.call("GET", "/state")).cache.nextRequestAt,
+  );
+  assert.equal(next.requests.length, 1);
+  assert.equal(new URL(next.requests[0][0]).pathname, "/v2/informers");
+  assert.equal((await restarted.call("GET", "/state")).cache.totalRequests, 3);
+});
+
+test("an auto probe cannot exceed its own budget or fall back for unrelated HTTP failures", async () => {
+  for (const [status, limit] of [
+    [401, 5],
+    [429, 5],
+    [500, 5],
+  ]) {
+    const c = clock(undefined, async () => jsonResponse({}, status));
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [poolKey("a", validKey, "auto", limit)]);
+    await c.advance();
+    assert.equal(c.requests.length, 1, `status ${status}, budget ${limit}`);
+    assert.equal((await h.call("GET", "/state")).cache.usedToday, 1);
+    h.dispose();
+  }
+});
+
+test("removing, readding, renaming and reordering keys cannot reset durable quota", async () => {
+  const c = clock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [
+    poolKey("a", validKey, "home", 4),
+    poolKey("b", secondKey, "site", 4),
+  ]);
+  await c.advance();
+  await pool(h, [poolKey("b", secondKey, "site", 4)], {
+    useLastResponse: true,
+  });
+  let state = await h.call("GET", "/state");
+  assert.equal(state.cache.usedToday, 1);
+  assert.equal(state.cache.totalRequests, 1);
+  await pool(
+    h,
+    [
+      poolKey("b", secondKey, "site", 4),
+      poolKey("renamed", validKey, "home", 4),
+    ],
+    { useLastResponse: true },
+  );
+  state = await h.call("GET", "/state");
+  assert.equal(state.source.keys.find((k) => k.id === "renamed").usedToday, 1);
+  assert.equal(state.cache.remaining, 7);
+  h.dispose();
+  const restarted = host(h.data.get(KEY), clock(c.now()).runtime);
+  await restarted.activate();
+  state = await restarted.call("GET", "/state");
+  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.source.keys.find((k) => k.id === "renamed").usedToday, 1);
+  assert.equal(
+    state.source.keys.find((k) => k.id === "renamed").totalRequests,
+    1,
+  );
+});
+
+test("auto HTTP 404 detects site while successful forecast detection is not repeated", async () => {
+  for (const [firstStatus, expectedType, paths] of [
+    [404, "site", ["/v2/forecast", "/v2/informers"]],
+    [200, "home", ["/v2/forecast"]],
+  ]) {
+    const c = clock(undefined, async (url) =>
+      new URL(url).pathname === "/v2/forecast" && firstStatus !== 200
+        ? jsonResponse({}, firstStatus)
+        : jsonResponse(fakeWeather()),
+    );
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [poolKey("a", validKey, "auto", 10)]);
+    await c.advance();
+    assert.deepEqual(
+      c.requests.map(([url]) => new URL(url).pathname),
+      paths,
+    );
+    let state = await h.call("GET", "/state");
+    assert.equal(state.source.keys[0].detectedType, expectedType);
+    await c.advance(state.cache.nextRequestAt);
+    assert.equal(c.requests.length, paths.length + 1);
+    assert.equal(new URL(c.requests.at(-1)[0]).pathname, paths.at(-1));
+    state = await pool(h, [poolKey("a", "", "home", 10)]);
+    await c.advance(state.cache.nextRequestAt);
+    assert.equal(new URL(c.requests.at(-1)[0]).pathname, "/v2/forecast");
+    h.dispose();
+  }
+});
+
+test("legacy single-key configuration migrates without losing previously used quota", async () => {
+  const c = clock();
+  const h = host(
+    {
+      version: 1,
+      settings: structuredClone(model.defaults),
+      source: {
+        lat: 55.75,
+        lon: 37.62,
+        apiKey: validKey,
+        dailyLimit: 50,
+        useLastResponse: true,
+      },
+      usage: {
+        day: "2026-10-30",
+        used: 7,
+        total: 19,
+        nextRequestAt: c.now() + 60000,
+        blockedUntil: 0,
+      },
+    },
+    c.runtime,
+  );
+  await h.activate();
+  const state = await h.call("GET", "/state");
+  assert.equal(state.source.keys.length, 1);
+  assert.equal(state.source.keys[0].type, "site");
+  assert.equal(state.source.keys[0].usedToday, 7);
+  assert.equal(state.source.keys[0].totalRequests, 19);
+  assert.equal(state.cache.usedToday, 7);
+  assert.equal(state.cache.totalRequests, 19);
+  assert.equal(state.cache.remaining, 43);
+  await c.advance();
+  assert.equal(c.requests.length, 0);
+});
+
+test("pool pacing uses aggregate budget and selects the largest remaining fraction", async () => {
+  const c = clock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [
+    poolKey("b", secondKey, "site", 4),
+    poolKey("a", validKey, "home", 2),
+  ]);
+  await c.advance();
+  let state = await h.call("GET", "/state");
+  assert.equal(c.requests[0][1].headers["X-Yandex-Weather-Key"], validKey);
+  assert.equal(state.source.dailyLimit, 6);
+  assert.equal(state.cache.remaining, 5);
+  assert.equal(
+    state.cache.nextRequestAt,
+    c.now() + (state.cache.resetAt - c.now()) / 6,
+  );
+  for (let i = 0; i < 2; i++) {
+    await c.advance(state.cache.nextRequestAt);
+    assert.equal(
+      c.requests.at(-1)[1].headers["X-Yandex-Weather-Key"],
+      secondKey,
+    );
+    state = await h.call("GET", "/state");
+  }
+  assert.equal(state.cache.usedToday, 3);
+  assert.equal(state.cache.remaining, 3);
+  assert.equal(state.source.keys.find((k) => k.id === "a").usedToday, 1);
+  assert.equal(state.source.keys.find((k) => k.id === "b").usedToday, 2);
+});
+
+test("auto key limit hints pick the initial endpoint without confirming a malformed response", async () => {
+  for (const [limit, endpoint, type] of [
+    [50, "/v2/informers", "site"],
+    [30, "/v2/forecast", "home"],
+  ]) {
+    const c = clock();
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [poolKey("a", validKey, "auto", limit)]);
+    await c.advance();
+    assert.equal(c.requests.length, 1);
+    assert.equal(new URL(c.requests[0][0]).pathname, endpoint);
+    assert.equal(
+      (await h.call("GET", "/state")).source.keys[0].detectedType,
+      type,
+    );
+    h.dispose();
+  }
+  const c = clock(undefined, async () =>
+    jsonResponse({ fact: { temp: "invalid" } }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("a", validKey, "auto", 50)]);
+  await c.advance();
+  assert.equal(c.requests.length, 1);
+  assert.equal(
+    (await h.call("GET", "/state")).source.keys[0].detectedType,
+    null,
+  );
+});
+
+test("an incorrect site limit hint probes home and caches the confirmed home endpoint", async () => {
+  const c = clock(undefined, async (url) =>
+    new URL(url).pathname === "/v2/informers"
+      ? jsonResponse({}, 403)
+      : jsonResponse(fakeWeather()),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("a", validKey, "auto", 50)]);
+  await c.advance();
+  assert.deepEqual(
+    c.requests.map(([url]) => new URL(url).pathname),
+    ["/v2/informers", "/v2/forecast"],
+  );
+  let state = await h.call("GET", "/state");
+  assert.equal(state.source.keys[0].detectedType, "home");
+  assert.equal(state.cache.usedToday, 1);
+  assert.equal(state.cache.requestsToday, 2);
+  assert.equal(state.cache.remaining, 49);
+  await c.advance(state.cache.nextRequestAt);
+  assert.equal(c.requests.length, 3);
+  assert.equal(new URL(c.requests.at(-1)[0]).pathname, "/v2/forecast");
+});
+
+test("new Moscow day resets all key quotas including removed keys while lifetime counters survive restart", async () => {
+  const c = clock();
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  const keys = [
+    poolKey("a", validKey, "home", 1),
+    poolKey("b", secondKey, "site", 1),
+  ];
+  await pool(h, keys);
+  await c.advance();
+  await c.advance((await h.call("GET", "/state")).cache.nextRequestAt);
+  await pool(h, [keys[1]], { useLastResponse: true });
+  h.dispose();
+  const next = clock(Date.parse("2026-10-31T06:00:00Z"));
+  const restarted = host(h.data.get(KEY), next.runtime);
+  await restarted.activate();
+  const state = await pool(restarted, keys, { useLastResponse: true });
+  assert.equal(state.cache.usedToday, 0);
+  assert.equal(state.cache.totalRequests, 2);
+  assert.equal(state.cache.remaining, 2);
+  for (const key of state.source.keys) {
+    assert.equal(key.usedToday, 0);
+    assert.equal(key.totalRequests, 1);
+    assert.equal(key.blockedUntil, 0);
+  }
+  await next.advance();
+  assert.equal(next.requests.length, 0);
+});
+
+test("ten keys are accepted and eleven are rejected", async () => {
+  const h = host();
+  await h.activate();
+  const keys = Array.from({ length: 10 }, (_, i) =>
+    poolKey(`k${i}`, `fictional-weather-key-${i}`),
+  );
+  assert.equal(
+    (await pool(h, keys, { useLastResponse: true })).source.keys.length,
+    10,
+  );
+  assert.equal(
+    (await pool(h, [...keys, poolKey("extra", "fictional-extra-key")])).status,
+    422,
+  );
+});
+
+for (const status of [403, 404]) {
+  test(`auto HTTP ${status} refunds each probe without spinning or losing lifetime attempts`, async () => {
+    const c = clock(undefined, async () => jsonResponse({}, status));
+    const h = host(undefined, c.runtime);
+    await h.activate();
+    await pool(h, [poolKey("a", validKey, "auto", 1)]);
+    await c.advance();
+    const state = await h.call("GET", "/state");
+    assert.equal(c.requests.length, 2);
+    assert.equal(state.cache.usedToday, 0);
+    assert.equal(state.cache.requestsToday, 2);
+    assert.equal(state.cache.totalRequests, 2);
+    assert.equal(state.cache.remaining, 0);
+    assert.equal(state.source.keys[0].remaining, 1);
+    assert.equal(state.source.keys[0].usedToday, 0);
+    assert.equal(state.source.keys[0].requestsToday, 2);
+    assert.equal(state.cache.nextRequestAt, state.cache.resetAt);
+    await c.advance(state.cache.resetAt - 1);
+    assert.equal(c.requests.length, 2);
+    h.dispose();
+    const restarted = host(h.data.get(KEY), clock(c.now()).runtime);
+    await restarted.activate();
+    const saved = await restarted.call("GET", "/state");
+    assert.equal(saved.cache.usedToday, 0);
+    assert.equal(saved.cache.totalRequests, 2);
+    assert.equal(saved.source.keys[0].remaining, 1);
+  });
+}
+
+test("refund persistence failure prevents the alternate probe and conservatively retains the reserved quota", async () => {
+  let release;
+  const c = clock(
+    undefined,
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("a", validKey, "auto", 5)]);
+  const pending = c.advance();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(c.requests.length, 1);
+  const realSet = h.data.set.bind(h.data);
+  h.data.set = () => {
+    throw Error("disk full during refund");
+  };
+  release(jsonResponse({}, 403));
+  await pending;
+  h.data.set = realSet;
+  assert.equal(c.requests.length, 1);
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.usedToday, 1);
+  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(h.data.get(KEY).usage.used, 1);
+});
+
+test("an old-day rejected response cannot decrement new-day counters", async () => {
+  let release;
+  const c = clock(
+    Date.parse("2026-10-30T20:59:30Z"),
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await pool(h, [poolKey("a", validKey, "home", 5)]);
+  const pending = c.advance();
+  await new Promise((resolve) => setImmediate(resolve));
+  const reset = (await h.call("GET", "/state")).cache.resetAt;
+  await c.advance(reset + 1);
+  release(jsonResponse({}, 403));
+  await pending;
+  const state = await h.call("GET", "/state");
+  assert.equal(state.cache.usedToday, 0);
+  assert.equal(state.source.keys[0].usedToday, 0);
+  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(h.data.get(KEY).usage.day, "2026-10-31");
 });

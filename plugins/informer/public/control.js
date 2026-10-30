@@ -316,50 +316,210 @@
     frame.style.transform = `scale(${scale})`;
     frame.style.left = `${Math.max(0, (holder.clientWidth - screen.width * scale) / 2)}px`;
   }
+  const keyRows = [];
+  function opaqueKeyId() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) =>
+      value.toString(16).padStart(2, "0"),
+    ).join("");
+  }
+  function addKeyRow(key = {}, binding = false) {
+    if (keyRows.length >= 10) return;
+    const id = key.id || opaqueKeyId();
+    const row = document.createElement("fieldset");
+    row.className = "weather-key";
+    const prefix = `weather-key-${opaqueKeyId()}`;
+    // Only static markup is interpolated. Saved labels and ids stay in DOM values.
+    row.innerHTML = `<legend>Ключ API</legend>
+      <label for="${prefix}-name">Название (необязательно)</label>
+      <input id="${prefix}-name" type="text" maxlength="80" autocomplete="off">
+      <label for="${prefix}-secret">Ключ API</label>
+      <input id="${prefix}-secret" type="password" autocomplete="new-password" aria-describedby="${prefix}-hint">
+      <p id="${prefix}-hint" class="hint">Пустое поле сохраняет заданный ключ.</p>
+      <div class="weather-key-options">
+        <label>Тип API<select id="${prefix}-type"><option value="auto">Автоматически</option><option value="home">Умный дом</option><option value="site">Для сайта</option></select></label>
+        <label>Лимит в сутки<input id="${prefix}-limit" type="number" min="1" max="10000" step="1" required></label>
+      </div>
+      <p id="${prefix}-status" class="weather-key-status" role="status"></p>
+      <button type="button">Удалить ключ</button>`;
+    const entry = {
+      id,
+      row,
+      name: row.querySelector(`#${prefix}-name`),
+      secret: row.querySelector(`#${prefix}-secret`),
+      type: row.querySelector("select"),
+      limit: row.querySelector('input[type="number"]'),
+      status: row.querySelector(".weather-key-status"),
+      customizedLimit: Boolean(key.id),
+      hasApiKey: Boolean(key.hasApiKey),
+    };
+    entry.name.value = key.name || "";
+    entry.type.value = key.type || "auto";
+    entry.limit.value = key.dailyLimit ?? 30;
+    entry.secret.placeholder = key.hasApiKey
+      ? "Ключ сохранён"
+      : "Введите ключ API";
+    entry.limit.addEventListener("input", () => {
+      entry.customizedLimit = true;
+      updateKeyStatus(entry, entry.latestStatus);
+      updateSourceGuard();
+    });
+    entry.type.addEventListener("change", () => {
+      if (!entry.customizedLimit)
+        entry.limit.value = entry.type.value === "site" ? 50 : 30;
+      updateKeyStatus(entry, entry.latestStatus);
+      updateSourceGuard();
+    });
+    entry.secret.addEventListener("input", () => {
+      updateKeyStatus(entry, entry.latestStatus);
+      updateSourceGuard();
+    });
+    row.querySelector("button").addEventListener("click", () => {
+      const index = keyRows.indexOf(entry);
+      keyRows.splice(index, 1);
+      row.remove();
+      $("add-weather-key").disabled = keyRows.length >= 10;
+      updateSourceGuard();
+    });
+    keyRows.push(entry);
+    $("weather-keys").append(row);
+    $("add-weather-key").disabled = keyRows.length >= 10;
+    updateKeyStatus(entry, key);
+    if (!binding) updateSourceGuard();
+    return entry;
+  }
+  function keyCredentialState(entry) {
+    const secret = entry.secret.value.trim();
+    const malformed =
+      Boolean(secret) && !/^[a-zA-Z0-9_-]{16,200}$/.test(secret);
+    const rejected = !secret && Boolean(entry.latestStatus?.invalid);
+    return {
+      malformed,
+      rejected,
+      usable: !malformed && (Boolean(secret) || entry.hasApiKey),
+    };
+  }
+  function updateSourceGuard(showPreview = true) {
+    const input = $("use-last-response");
+    const disabled = !keyRows.some((entry) => keyCredentialState(entry).usable);
+    const changed = disabled && !input.checked;
+    input.disabled = disabled;
+    if (disabled) input.checked = true;
+    if (changed && showPreview) preview();
+  }
+  function updateKeyStatus(entry, key) {
+    entry.latestStatus = key;
+    const credential = keyCredentialState(entry);
+    entry.row.classList.toggle(
+      "weather-key-invalid",
+      credential.malformed || credential.rejected,
+    );
+    entry.secret.setAttribute(
+      "aria-invalid",
+      String(credential.malformed || credential.rejected),
+    );
+    entry.secret.setCustomValidity(
+      credential.malformed
+        ? "Ключ должен содержать 16–200 латинских букв, цифр, _ или -."
+        : "",
+    );
+    const invalidHint = credential.malformed
+      ? "Неверный формат ключа: 16–200 латинских букв, цифр, _ или -.\n"
+      : credential.rejected
+        ? "Ключ не принят API. Замените или удалите его.\n"
+        : "";
+    const types = { home: "Умный дом", site: "Для сайта" };
+    const detected =
+      entry.type.value === key?.type && !entry.secret.value.trim()
+        ? types[key?.detectedType]
+        : null;
+    const limit = Number(entry.limit.value);
+    const assumed = limit === 30 ? "home" : limit === 50 ? "site" : null;
+    const apiStatus = detected
+      ? `Подтверждённый API: ${detected}`
+      : entry.type.value !== "auto"
+        ? `Выбранный API: ${types[entry.type.value]}`
+        : assumed
+          ? `Предположительно: ${types[assumed]}. Подтверждение после успешного запроса.`
+          : "API: автоматически; подтверждение после успешного запроса.";
+    if (!key?.id) {
+      entry.status.textContent = `${invalidHint}${apiStatus}\nНовый ключ: статистика появится после применения.`;
+      return;
+    }
+    entry.status.textContent = `${invalidHint}Сегодня (квота): ${key.usedToday ?? 0} / ${key.dailyLimit}; остаток квоты: ${key.remaining ?? 0}\nВсего попыток запроса: ${key.totalRequests ?? 0}\n${apiStatus}${key.lastStatus ? `\nСтатус: ${key.lastStatus}` : ""}${key.blockedUntil ? `\nЗаблокирован до: ${sourceDate(key.blockedUntil)}` : ""}${key.message ? `\n${key.message}` : ""}`;
+  }
   function bindSource() {
     const source = snapshot?.source;
     if (!sourceSupported) return;
     $("latitude").value = source.lat;
     $("longitude").value = source.lon;
-    $("daily-limit").value = source.dailyLimit;
     $("use-last-response").checked = source.useLastResponse;
-    $("api-key").value = "";
-    $("api-key").placeholder = source.hasApiKey
-      ? "Ключ сохранён"
-      : "Введите ключ API";
+    keyRows.length = 0;
+    $("weather-keys").replaceChildren();
+    for (const key of source.keys) addKeyRow(key, true);
+    $("add-weather-key").disabled = keyRows.length >= 10;
     sourceBound = true;
+    updateSourceGuard(false);
+  }
+  function sourceInputValid(input) {
+    const valid = input.validity.valid;
+    input.setAttribute("aria-invalid", String(!valid));
+    if (!valid) {
+      input.reportValidity();
+      input.focus();
+    }
+    return valid;
   }
   function readSource() {
     if (!sourceSupported)
       throw Error(
         "Обновите backend Informer и перезапустите GMIB для настройки источника.",
       );
-    for (const id of ["latitude", "longitude", "daily-limit"])
-      if (!$(id).validity.valid)
-        throw Error("Проверьте координаты и суточный лимит запросов.");
-    const source = {
+    for (const id of ["latitude", "longitude"])
+      if (!sourceInputValid($(id)))
+        throw Error("Проверьте координаты источника погоды.");
+    return {
       lat: Number($("latitude").value),
       lon: Number($("longitude").value),
-      dailyLimit: Number($("daily-limit").value),
       useLastResponse: $("use-last-response").checked,
+      keys: keyRows.map((entry, index) => {
+        if (!sourceInputValid(entry.secret))
+          throw Error(`Проверьте формат ключа № ${index + 1}.`);
+        if (!sourceInputValid(entry.limit))
+          throw Error(
+            `Проверьте суточный лимит ключа № ${index + 1} (1–10000).`,
+          );
+        const key = {
+          id: entry.id,
+          name: entry.name.value.trim(),
+          type: entry.type.value,
+          dailyLimit: Number(entry.limit.value),
+        };
+        const secret = entry.secret.value.trim();
+        if (secret) key.apiKey = secret;
+        return key;
+      }),
     };
-    const apiKey = $("api-key").value.trim();
-    if (apiKey) source.apiKey = apiKey;
-    return source;
+  }
+  function sourceDate(value) {
+    if (!value || !Number.isFinite(new Date(value).getTime())) return "—";
+    return new Intl.DateTimeFormat("ru-RU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Europe/Moscow",
+    }).format(new Date(value));
   }
   function updateCache() {
     const c = snapshot?.cache;
-    const date = (value) => {
-      if (!value || !Number.isFinite(new Date(value).getTime())) return "—";
-      return new Intl.DateTimeFormat("ru-RU", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Europe/Moscow",
-      }).format(new Date(value));
-    };
+    for (const entry of keyRows) {
+      const key = snapshot?.source?.keys?.find(
+        (candidate) => candidate.id === entry.id,
+      );
+      updateKeyStatus(entry, key);
+    }
+    updateSourceGuard();
     $("cache-status").textContent = !sourceSupported
       ? "Настройки источника недоступны. Перезапустите GMIB после обновления backend Informer."
-      : `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}\nСегодня: ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}; осталось: ${c?.remaining ?? 0}\nВсего запросов: ${c?.totalRequests ?? 0}\nСледующее обновление: ${date(c?.nextRequestAt)}\nСброс лимита (МСК): ${date(c?.resetAt)}\nПолучен ответ: ${date(c?.fetchedAt)}${c?.message ? `\n${c.message}` : ""}`;
+      : `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}\nСегодня (квота): ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}\nДоступный пул: ${c?.remaining ?? 0}\nВсего попыток запроса: ${c?.totalRequests ?? 0}\nСледующее обновление: ${sourceDate(c?.nextRequestAt)}\nСброс лимита (МСК): ${sourceDate(c?.resetAt)}\nПолучен ответ: ${sourceDate(c?.fetchedAt)}${c?.message ? `\n${c.message}` : ""}`;
   }
   function updateSnapshot(data, keepDraft = false) {
     if (!data || typeof data !== "object" || !data.settings) return;
@@ -372,11 +532,13 @@
     }
     snapshot = data;
     sourceSupported = Boolean(
-      data.source && typeof data.source.useLastResponse === "boolean",
+      data.source &&
+      typeof data.source.useLastResponse === "boolean" &&
+      Array.isArray(data.source.keys),
     );
     $("source-notice").hidden = sourceSupported;
     $("source-fields").disabled = !sourceSupported;
-    if (!sourceBound || !keepDraft) bindSource();
+    if (!sourceBound) bindSource();
     settingsSupported =
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
       ["none", "flip"].includes(data.settings.appearance?.valueAnimation) &&
@@ -489,17 +651,31 @@
       }
       if (
         path === "settings" &&
-        (!data?.source ||
-          ["lat", "lon", "dailyLimit", "useLastResponse"].some(
+        (!Array.isArray(data?.source?.keys) ||
+          ["lat", "lon", "useLastResponse"].some(
             (key) => data.source[key] !== body.weatherSource[key],
           ) ||
-          (body.weatherSource.apiKey && !data.source.hasApiKey))
+          data.source.keys.length !== body.weatherSource.keys.length ||
+          body.weatherSource.keys.some((submitted) => {
+            const saved = data.source.keys.find(
+              (key) => key.id === submitted.id,
+            );
+            return (
+              !saved ||
+              ["name", "type", "dailyLimit"].some(
+                (field) => saved[field] !== submitted[field],
+              ) ||
+              (Boolean(submitted.apiKey) && !saved.hasApiKey)
+            );
+          }))
       )
         throw Error(
           "Backend не сохранил источник погоды. Перезапустите GMIB и обновите страницу.",
         );
-      if (data?.settings) updateSnapshot(data, path !== "settings");
-      else await loadOutput();
+      if (data?.settings) {
+        updateSnapshot(data, path !== "settings");
+        if (path === "settings") bindSource();
+      } else await loadOutput();
       show(done);
     } catch (e) {
       show(e.message, true);
@@ -536,7 +712,13 @@
       $("save").disabled = !ready || !settingsSupported;
     }
   });
-  $("use-last-response").addEventListener("change", preview);
+  $("add-weather-key").addEventListener("click", () => {
+    addKeyRow()?.name.focus();
+  });
+  $("use-last-response").addEventListener("change", () => {
+    updateSourceGuard();
+    preview();
+  });
   $("start-output").addEventListener("click", async () => {
     const screenId = $("screen-select").value;
     if (!screenId) {

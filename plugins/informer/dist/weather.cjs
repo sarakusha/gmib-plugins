@@ -1,96 +1,16 @@
 "use strict";
-
-const { normalizeWeather } = require("./model.cjs");
-const DAY = 86400000;
-const MOSCOW = 3 * 3600000;
-const ENDPOINT = "https://api.weather.yandex.ru/v2/informers";
-const dayAt = (now) => new Date(now + MOSCOW).toISOString().slice(0, 10);
-const resetAt = (now) => (Math.floor((now + MOSCOW) / DAY) + 1) * DAY - MOSCOW;
-const finite = (value, min, max) =>
-  typeof value === "number" &&
-  Number.isFinite(value) &&
-  value >= min &&
-  value <= max;
-
-function validateSource(value, previous) {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    !finite(value.lat, -90, 90) ||
-    !finite(value.lon, -180, 180) ||
-    !Number.isSafeInteger(value.dailyLimit) ||
-    value.dailyLimit < 1 ||
-    value.dailyLimit > 10000 ||
-    typeof value.useLastResponse !== "boolean"
-  )
-    throw Error("Проверьте координаты и суточный лимит (1–10000).");
-  let apiKey = previous?.apiKey || "";
-  if (value.apiKey !== undefined && value.apiKey !== "") {
-    if (
-      typeof value.apiKey !== "string" ||
-      !/^[a-zA-Z0-9_-]{16,200}$/.test(value.apiKey)
-    )
-      throw Error("Проверьте ключ API Яндекс Погоды.");
-    apiKey = value.apiKey;
-  }
-  if (!value.useLastResponse && !apiKey)
-    throw Error("Для обновления погоды укажите ключ API.");
-  return {
-    lat: value.lat,
-    lon: value.lon,
-    dailyLimit: value.dailyLimit,
-    useLastResponse: value.useLastResponse,
-    apiKey,
-  };
-}
-
-function restoreSource(saved, weather) {
-  const fallback = {
-    lat: weather.location.lat ?? 56.6333,
-    lon: weather.location.lon ?? 47.8908,
-    dailyLimit: 50,
-    useLastResponse: true,
-    apiKey: "",
-  };
-  try {
-    return validateSource(saved, fallback);
-  } catch {
-    return fallback;
-  }
-}
-
-function usageAt(saved, now, legacyAttempt) {
-  const count = (value) =>
-    Number.isSafeInteger(value) && value >= 0 ? value : 0;
-  const legacy = finite(legacyAttempt, 1, 1e15) ? legacyAttempt : null;
-  const usage =
-    saved && typeof saved === "object"
-      ? saved
-      : {
-          day: legacy ? dayAt(legacy) : dayAt(now),
-          used: legacy ? 1 : 0,
-          total: legacy ? 1 : 0,
-          lastAttemptAt: legacy,
-        };
-  const sameDay = usage.day === dayAt(now);
-  return {
-    day: dayAt(now),
-    used: sameDay ? count(usage.used) : 0,
-    total: Math.max(count(usage.total), count(usage.used)),
-    lastAttemptAt: finite(usage.lastAttemptAt, 0, 1e15)
-      ? usage.lastAttemptAt
-      : null,
-    nextRequestAt:
-      sameDay && finite(usage.nextRequestAt, 0, 1e15)
-        ? usage.nextRequestAt
-        : null,
-    blockedUntil:
-      sameDay && finite(usage.blockedUntil, 0, 1e15)
-        ? usage.blockedUntil
-        : null,
-  };
-}
+const {
+  dayAt,
+  resetAt,
+  fingerprint,
+  validateSource,
+  restoreSource,
+  counterAt,
+  usageAt,
+  restoreUsage,
+  poolSignature,
+} = require("./weather-keys.cjs");
+const { requestUrl, adaptResponse } = require("./weather-providers.cjs");
 
 // Store a usable test response through an allowlist, never arbitrary provider fields.
 function testResponse(weather) {
@@ -138,47 +58,87 @@ function createWeatherService({
   logger,
   runtime = {},
 }) {
-  const now = runtime.now || Date.now;
-  const setTimer = runtime.setTimeout || setTimeout;
-  const clearTimer = runtime.clearTimeout || clearTimeout;
+  const now = runtime.now || Date.now,
+    setTimer = runtime.setTimeout || setTimeout,
+    clearTimer = runtime.clearTimeout || clearTimeout;
   const request = runtime.fetch || ((...args) => fetch(...args));
   let timer = null,
     disposed = false,
     controller = null;
-  const dueAt = (record, usage, at) => {
-    const reset = resetAt(at);
-    if (usage.used >= record.source.dailyLimit) return reset;
-    if (usage.blockedUntil && usage.blockedUntil > at)
-      return usage.blockedUntil;
+  function entries(record, usage, at) {
+    return record.source.keys.map((key) => {
+      const hash = key.apiKey ? fingerprint(key.apiKey) : null;
+      const counter = counterAt(hash ? usage.keys[hash] : null, at);
+      const remaining =
+        key.apiKey && counter.blockedUntil <= at
+          ? Math.max(0, key.dailyLimit - counter.used)
+          : 0;
+      return { key, hash, counter, remaining };
+    });
+  }
+  const available = (record, usage, at) =>
+    entries(record, usage, at).reduce((sum, key) => sum + key.remaining, 0);
+  function dueAt(record, usage, at) {
+    const remaining = available(record, usage, at),
+      reset = resetAt(at);
+    if (!remaining) return reset;
     if (usage.nextRequestAt !== null) return usage.nextRequestAt;
     if (
       usage.lastAttemptAt !== null &&
       dayAt(usage.lastAttemptAt) === usage.day
-    ) {
-      const remaining = Math.max(0, record.source.dailyLimit - usage.used);
+    )
       return Math.min(
         reset,
         usage.lastAttemptAt +
           Math.max(60000, (reset - usage.lastAttemptAt) / (remaining + 1)),
       );
-    }
     return at;
-  };
+  }
   function state() {
     const record = getRecord(),
       at = now(),
       usage = usageAt(record.usage, at);
-    const { apiKey, ...source } = record.source;
+    const keys = entries(record, usage, at).map(
+      ({ key, counter, remaining }) => ({
+        id: key.id,
+        name: key.name,
+        type: key.type,
+        dailyLimit: key.dailyLimit,
+        hasApiKey: Boolean(key.apiKey),
+        detectedType: counter.detectedType,
+        usedToday: counter.used,
+        requestsToday: counter.attempts,
+        totalRequests: counter.total,
+        remaining: key.apiKey ? Math.max(0, key.dailyLimit - counter.used) : 0,
+        invalid:
+          counter.blockedUntil > at &&
+          [401, 403, 404].includes(counter.lastStatus),
+        blockedUntil: counter.blockedUntil,
+        lastStatus: counter.lastStatus,
+        message: counter.message,
+      }),
+    );
+    const hasApiKey = keys.some((key) => key.hasApiKey);
     return {
-      source: { ...source, hasApiKey: Boolean(apiKey) },
+      source: {
+        lat: record.source.lat,
+        lon: record.source.lon,
+        useLastResponse: record.source.useLastResponse,
+        keys,
+        dailyLimit: keys.reduce((sum, key) => sum + key.dailyLimit, 0),
+        hasApiKey,
+      },
       cache: {
-        mode: source.useLastResponse ? "frozen" : "live",
+        mode: record.source.useLastResponse ? "frozen" : "live",
         usedToday: usage.used,
         totalRequests: usage.total,
-        remaining: Math.max(0, source.dailyLimit - usage.used),
+        requestsToday: usage.attempts,
+        remaining: available(record, usage, at),
         resetAt: resetAt(at),
         nextRequestAt:
-          !source.useLastResponse && apiKey ? dueAt(record, usage, at) : null,
+          !record.source.useLastResponse && hasApiKey
+            ? dueAt(record, usage, at)
+            : null,
         lastAttemptAt: usage.lastAttemptAt,
         fetchedAt: record.weather.fetchedAt,
         message: record.cache?.message || "",
@@ -188,15 +148,13 @@ function createWeatherService({
   function schedule() {
     if (timer !== null) clearTimer(timer);
     timer = null;
-    const record = getRecord();
     if (disposed) return;
-    const at = now(),
+    const record = getRecord(),
+      at = now(),
       usage = usageAt(record.usage, at);
-    const frozen = record.source.useLastResponse || !record.source.apiKey;
-    const delay = Math.max(
-      0,
-      (frozen ? resetAt(at) : dueAt(record, usage, at)) - at,
-    );
+    const frozen =
+      record.source.useLastResponse ||
+      !record.source.keys.some((key) => key.apiKey);
     timer = setTimer(
       () => {
         timer = null;
@@ -204,114 +162,190 @@ function createWeatherService({
           logger.warn(
             "Informer: обновление погоды не выполнено; повтор отложен",
           );
-          // A failed durable reservation must not become a tight retry loop.
           if (!disposed) {
+            if (timer !== null) clearTimer(timer);
             timer = setTimer(schedule, 60000);
             timer?.unref?.();
           }
         });
       },
-      Math.min(delay, 2147483647),
+      Math.min(
+        2147483647,
+        Math.max(0, (frozen ? resetAt(at) : dueAt(record, usage, at)) - at),
+      ),
     );
     timer?.unref?.();
   }
-  async function tick() {
-    if (disposed) return;
-    let record = getRecord();
-    const at = now(),
-      usage = usageAt(record.usage, at);
-    if (record.usage.day !== usage.day) {
-      await persist({ ...record, usage });
-      record = getRecord();
+  async function saveOutcome(hash, patch, weather, refundDay) {
+    const record = getRecord(),
+      usage = usageAt(record.usage, now());
+    const counter = counterAt(usage.keys[hash], now());
+    // A known non-billable response refunds only its own day's reservation.
+    if (refundDay === usage.day) {
+      usage.used = Math.max(0, usage.used - 1);
+      counter.used = Math.max(0, counter.used - 1);
     }
-    if (disposed) return;
-    if (record.source.useLastResponse || !record.source.apiKey) {
-      schedule();
-      return;
-    }
-    if (dueAt(record, usage, at) > at) {
-      schedule();
-      return;
-    }
-    const used = usage.used + 1;
-    const nextRequestAt = Math.min(
-      resetAt(at),
-      at +
+    usage.keys[hash] = { ...counter, ...patch };
+    const remaining = available(record, usage, now());
+    usage.nextRequestAt = Math.min(
+      resetAt(now()),
+      usage.lastAttemptAt +
         Math.max(
           60000,
-          (resetAt(at) - at) /
-            (Math.max(0, record.source.dailyLimit - used) + 1),
+          (resetAt(now()) - usage.lastAttemptAt) / (remaining + 1),
         ),
     );
-    // Persist the attempt before dispatch, including errors and interrupted processes.
     await persist({
       ...record,
-      usage: {
-        ...usage,
-        used,
-        total: usage.total + 1,
-        lastAttemptAt: at,
-        nextRequestAt,
-      },
+      usage,
+      ...(weather ? { weather, testResponse: testResponse(weather) } : {}),
+      cache: { message: weather ? "" : patch.message || "" },
+    });
+  }
+  async function attempt(key, type) {
+    if (disposed) return { stopped: true };
+    const record = getRecord(),
+      at = now(),
+      usage = usageAt(record.usage, at),
+      hash = fingerprint(key.apiKey);
+    const counter = counterAt(usage.keys[hash], at);
+    if (counter.used >= key.dailyLimit || counter.blockedUntil > at)
+      return { stopped: true };
+    usage.keys[hash] = {
+      ...counter,
+      used: counter.used + 1,
+      attempts: counter.attempts + 1,
+      total: counter.total + 1,
+      lastAttemptAt: at,
+    };
+    usage.used++;
+    usage.attempts++;
+    usage.total++;
+    usage.lastAttemptAt = at;
+    const remaining = available(record, usage, at);
+    usage.nextRequestAt = Math.min(
+      resetAt(at),
+      at + Math.max(60000, (resetAt(at) - at) / (remaining + 1)),
+    );
+    // Every probe and failed request is durably reserved before dispatch.
+    await persist({
+      ...record,
+      usage,
       cache: { message: "Обновление погоды…" },
     });
-    if (disposed) return;
-    record = getRecord();
+    if (disposed) return { stopped: true };
     let response;
     controller = new AbortController();
     try {
-      const url = new URL(ENDPOINT);
-      url.searchParams.set("lat", String(record.source.lat));
-      url.searchParams.set("lon", String(record.source.lon));
-      url.searchParams.set("lang", "ru_RU");
-      response = await request(url, {
-        headers: { "X-Yandex-Weather-Key": record.source.apiKey },
+      response = await request(requestUrl(type, record.source), {
+        headers: { "X-Yandex-Weather-Key": key.apiKey },
         signal: AbortSignal.any([
           controller.signal,
           AbortSignal.timeout(15000),
         ]),
         redirect: "error",
       });
-      if (!response.ok) throw Error("provider");
+      if (!response.ok) return { status: response.status, day: usage.day };
       let size = 0;
       const chunks = [];
       for await (const chunk of response.body) {
         size += chunk.length;
         if (size > 1024 * 1024) {
           controller.abort();
-          throw Error("response too large");
+          throw Error("too large");
         }
         chunks.push(Buffer.from(chunk));
       }
-      const raw = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      const weather = normalizeWeather(
-        { ...raw, info: { lat: record.source.lat, lon: record.source.lon } },
+      const weather = adaptResponse(
+        JSON.parse(Buffer.concat(chunks).toString("utf8")),
+        type,
+        record.source,
         now(),
       );
-      if (!disposed)
-        await persist({
-          ...getRecord(),
-          weather,
-          testResponse: testResponse(weather),
-          cache: { message: "" },
-        });
+      return { status: response.status, weather, day: usage.day };
     } catch {
-      if (!disposed) {
-        const current = getRecord();
-        const blocked = [401, 403, 429].includes(response?.status);
-        await persist({
-          ...current,
-          usage: {
-            ...current.usage,
-            blockedUntil: blocked ? resetAt(now()) : null,
-          },
-          cache: {
-            message: `Погода не обновлена.${response && !response.ok ? ` HTTP ${response.status}.` : ""} Используется последний ответ.${blocked ? " Следующая попытка — после сброса лимита." : ""}`,
-          },
-        });
-      }
+      return { status: response?.status || null, failed: true, day: usage.day };
     } finally {
       controller = null;
+    }
+  }
+  async function tick() {
+    if (disposed) return;
+    let record = getRecord(),
+      at = now(),
+      usage = usageAt(record.usage, at);
+    if (record.usage.day !== usage.day) {
+      await persist({ ...record, usage });
+      record = getRecord();
+    }
+    if (disposed) return;
+    if (record.source.useLastResponse || dueAt(record, usage, at) > at) {
+      schedule();
+      return;
+    }
+    const eligible = entries(record, usage, at)
+      .filter((item) => item.remaining > 0)
+      .sort(
+        (a, b) =>
+          b.remaining / b.key.dailyLimit - a.remaining / a.key.dailyLimit ||
+          a.key.id.localeCompare(b.key.id),
+      );
+    if (!eligible.length) {
+      schedule();
+      return;
+    }
+    const { key, hash, counter } = eligible[0];
+    const unknown = key.type === "auto" && !counter.detectedType;
+    let type =
+      key.type === "auto"
+        ? counter.detectedType || (key.dailyLimit === 50 ? "site" : "home")
+        : key.type;
+    try {
+      let result = await attempt(key, type);
+      if (disposed || result.stopped) return;
+      // A 403/404 from an unclassified key can mean the other v2 endpoint is required.
+      // Bound auto detection to two requests; each attempt is counted and reserves quota before dispatch.
+      if (unknown && [403, 404].includes(result.status) && !result.failed) {
+        await saveOutcome(
+          hash,
+          { lastStatus: result.status, message: "Проверка другого API…" },
+          null,
+          result.day,
+        );
+        const current = usageAt(getRecord().usage, now());
+        const entry = counterAt(current.keys[hash], now());
+        if (entry.used < key.dailyLimit) {
+          type = type === "home" ? "site" : "home";
+          result = await attempt(key, type);
+        } else result = { ...result, day: null };
+      }
+      if (disposed || result.stopped) return;
+      if (result.weather)
+        await saveOutcome(
+          hash,
+          {
+            detectedType: type,
+            lastStatus: result.status,
+            message: "",
+            blockedUntil: 0,
+          },
+          result.weather,
+        );
+      else {
+        const blocked = [401, 403, 404, 429].includes(result.status);
+        const message = `Погода не обновлена.${result.status ? ` HTTP ${result.status}.` : ""} Используется последний ответ.${blocked ? " Этот ключ приостановлен до сброса суток." : ""}`;
+        await saveOutcome(
+          hash,
+          {
+            lastStatus: result.status,
+            message,
+            blockedUntil: blocked ? resetAt(now()) : 0,
+          },
+          null,
+          [403, 404].includes(result.status) ? result.day : null,
+        );
+      }
+    } finally {
       schedule();
     }
   }
@@ -325,13 +359,14 @@ function createWeatherService({
     },
   };
 }
-
 module.exports = {
   dayAt,
   resetAt,
   usageAt,
+  restoreUsage,
   validateSource,
   restoreSource,
+  poolSignature,
   testResponse,
   createWeatherService,
 };

@@ -189,11 +189,17 @@ test("failed persistence preserves catalog and events; queued writes keep latest
     h.call("put", "/settings", settings),
     h.call("put", "/settings", {
       ...settings,
-      weatherSource: { lat: 3, lon: 4, dailyLimit: 12, useLastResponse: true },
+      weatherSource: {
+        lat: 3,
+        lon: 4,
+        dailyLimit: 12,
+        useLastResponse: true,
+        apiKey: "fictional-theme-test-key",
+      },
     }),
   ]);
   assert.equal(h.saved().themes.length, 2);
   assert.equal(h.saved().settings.appearance.dim, 0.7);
   assert.equal(h.saved().source.lat, 3);
-  assert.equal(h.saved().source.dailyLimit, 12);
+  assert.equal(h.saved().source.keys[0].dailyLimit, 12);
 });

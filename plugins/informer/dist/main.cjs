@@ -18,6 +18,8 @@ const {
   restoreSource,
   validateSource,
   usageAt,
+  restoreUsage,
+  poolSignature,
   testResponse,
   createWeatherService,
 } = require("./weather.cjs");
@@ -40,13 +42,14 @@ exports.activate = async (
     weather = normalizeWeather(sample, 0);
   }
   const now = runtime.now || Date.now;
+  const source = restoreSource(saved.source, weather);
   let record = {
     version: 1,
     settings,
     weather,
     themes: restoreThemes(saved.themes),
-    source: restoreSource(saved.source, weather),
-    usage: usageAt(saved.usage, now(), saved.cache?.attemptedAt),
+    source,
+    usage: restoreUsage(saved.usage, now(), saved.cache?.attemptedAt, source),
     testResponse: testResponse(weather),
     cache: {
       message:
@@ -153,9 +156,16 @@ exports.activate = async (
         }
         // Presentation and weather source are committed atomically; themes contain presentation only.
         const usage = usageAt(record.usage, now());
-        if (source.dailyLimit !== record.source.dailyLimit)
-          usage.nextRequestAt = null;
-        const result = await persist({ ...record, settings, source, usage });
+        const poolChanged =
+          poolSignature(source) !== poolSignature(record.source);
+        if (poolChanged) usage.nextRequestAt = null;
+        const result = await persist({
+          ...record,
+          settings,
+          source,
+          usage,
+          cache: poolChanged ? { message: "" } : record.cache,
+        });
         weatherService.schedule();
         return result;
       }),
