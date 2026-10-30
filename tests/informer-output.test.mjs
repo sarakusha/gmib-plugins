@@ -16,13 +16,30 @@ async function host({
   saved = config,
   failPlay = false,
   failStop = false,
+  atomic = false,
+  failApply = false,
+  failPersist = false,
+  active = true,
+  playing = false,
 } = {}) {
   let record = { version: 1, outputConfig: saved },
     status = {
-      active: true,
-      profile: { screenId: 1, pageId: "screen", autoStart: false },
+      active,
+      ...(active
+        ? {
+            profile: {
+              screenId: saved?.mode === "compact" ? 2 : 1,
+              pageId: "screen",
+              autoStart: false,
+            },
+          }
+        : {}),
       message: "Вывод включён",
     };
+  const playerStates = new Map([
+    [7, playing],
+    [8, false],
+  ]);
   const calls = [],
     routes = new Map(),
     disposers = [];
@@ -47,7 +64,12 @@ async function host({
     },
     ...(supported
       ? {
-          listPlayers: async () => [{ id: 7, name: "Ads", playing: false }],
+          listPlayers: async () =>
+            [...playerStates].map(([id, playing]) => ({
+              id,
+              name: `Ads ${id}`,
+              playing,
+            })),
           setPlayerState: async ({ playerId, playing }) => {
             calls.push(`player:${playerId}:${playing}`);
             if (!playing && failStop) throw Error("stop failed");
@@ -55,14 +77,30 @@ async function host({
               failPlay = false;
               throw Error("launch failed");
             }
+            playerStates.set(playerId, playing);
           },
         }
       : {}),
   };
+  if (atomic)
+    output.applyLayout = async (layout) => {
+      calls.push({ applyLayout: structuredClone(layout) });
+      if (failApply)
+        throw Error("atomic launch failed; host restored previous layout");
+      status = {
+        active: true,
+        profile: structuredClone(layout.profile),
+        message: "Вывод включён",
+      };
+      for (const player of layout.players ?? [])
+        playerStates.set(player.playerId, player.playing);
+    };
   await activate({
     storage: {
       get: async () => record,
       set: async (_, r) => {
+        if (failPersist && r.outputConfig?.mode !== saved?.mode)
+          throw Error("persist failed");
         record = structuredClone(r);
       },
     },
@@ -83,6 +121,8 @@ async function host({
   return {
     calls,
     record: () => record,
+    status: () => structuredClone(status),
+    playerState: (id) => playerStates.get(id),
     call: (method, body) => routes.get(`${method} /output`)({ body }),
     dispose: async () => {
       for (const d of disposers) await d();
@@ -175,6 +215,139 @@ test("player stop failure does not prevent hiding the clock", async () => {
   const state = await h.call("get");
   assert.equal(state.body.status.active, false);
   assert.equal(h.record().outputConfig.autoStart, false);
+  assert.deepEqual(h.calls, ["player:7:false", "hide"]);
+  await h.dispose();
+});
+
+test("atomic switching uses one layout request without preliminary stop/play/start", async () => {
+  const h = await host({ atomic: true });
+  const compact = await h.call("put", { command: "toggle", config });
+  assert.equal(compact.status, 200);
+  assert.equal(compact.body.config.mode, "compact");
+  assert.deepEqual(h.calls, [
+    {
+      applyLayout: {
+        profile: { screenId: 2, pageId: "screen", autoStart: false },
+        players: [{ playerId: 7, playing: true }],
+      },
+    },
+  ]);
+  const wide = await h.call("put", { command: "toggle", config });
+  assert.equal(wide.status, 200);
+  assert.equal(wide.body.config.mode, "wide");
+  assert.deepEqual(h.calls[1], {
+    applyLayout: {
+      profile: { screenId: 1, pageId: "screen", autoStart: false },
+      players: [{ playerId: 7, playing: false }],
+    },
+  });
+  await h.dispose();
+});
+
+test("atomic changing players stops the former player and starts the new compact player together", async () => {
+  const h = await host({
+    atomic: true,
+    saved: { ...config, mode: "compact" },
+    playing: true,
+  });
+  const r = await h.call("put", {
+    command: "show",
+    config: { ...config, mode: "compact", playerId: 8 },
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual(h.calls, [
+    {
+      applyLayout: {
+        profile: { screenId: 2, pageId: "screen", autoStart: false },
+        players: [
+          { playerId: 7, playing: false },
+          { playerId: 8, playing: true },
+        ],
+      },
+    },
+  ]);
+  assert.equal(h.playerState(7), false);
+  assert.equal(h.playerState(8), true);
+  await h.dispose();
+});
+
+test("an atomic rejection trusts host rollback without calling legacy stop or rollback", async () => {
+  const h = await host({ atomic: true, failApply: true });
+  const r = await h.call("put", { command: "toggle", config });
+  assert.equal(r.status, 500);
+  assert.match(r.body.error, /atomic launch failed/);
+  assert.equal(h.calls.length, 1);
+  assert.ok(h.calls[0].applyLayout);
+  assert.equal(h.status().profile.screenId, 1);
+  assert.equal(h.record().outputConfig.mode, "wide");
+  await h.dispose();
+});
+
+test("persistence failure after atomic switching restores the previous layout and actual player states", async () => {
+  const h = await host({ atomic: true, failPersist: true, playing: true });
+  const r = await h.call("put", { command: "toggle", config });
+  assert.equal(r.status, 500);
+  assert.match(r.body.error, /persist failed/);
+  assert.deepEqual(h.calls, [
+    {
+      applyLayout: {
+        profile: { screenId: 2, pageId: "screen", autoStart: false },
+        players: [{ playerId: 7, playing: true }],
+      },
+    },
+    {
+      applyLayout: {
+        profile: { screenId: 1, pageId: "screen", autoStart: false },
+        players: [{ playerId: 7, playing: true }],
+      },
+    },
+  ]);
+  assert.equal(h.record().outputConfig.mode, "wide");
+  assert.equal(h.status().profile.screenId, 1);
+  assert.equal(h.playerState(7), true);
+  await h.dispose();
+});
+
+test("persistence failure after showing from hidden returns to hidden and restores player states", async () => {
+  const h = await host({ atomic: true, failPersist: true, active: false });
+  const r = await h.call("put", {
+    command: "show",
+    config: { ...config, mode: "compact" },
+  });
+  assert.equal(r.status, 500);
+  assert.equal(h.calls.length, 3);
+  assert.ok(h.calls[0].applyLayout);
+  assert.deepEqual(h.calls.slice(1), ["hide", "player:7:false"]);
+  assert.equal(h.status().active, false);
+  assert.equal(h.playerState(7), false);
+  await h.dispose();
+});
+
+test("atomic screen-only mode omits player commands on hosts without player methods", async () => {
+  const h = await host({
+    atomic: true,
+    supported: false,
+    saved: { ...config, playerEnabled: false },
+  });
+  const r = await h.call("put", {
+    command: "toggle",
+    config: { ...config, playerEnabled: false },
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual(h.calls, [
+    {
+      applyLayout: {
+        profile: { screenId: 2, pageId: "screen", autoStart: false },
+      },
+    },
+  ]);
+  await h.dispose();
+});
+
+test("hide retains explicit player stop and output stop when atomic layout is available", async () => {
+  const h = await host({ atomic: true });
+  const r = await h.call("put", { command: "hide" });
+  assert.equal(r.status, 200);
   assert.deepEqual(h.calls, ["player:7:false", "hide"]);
   await h.dispose();
 });

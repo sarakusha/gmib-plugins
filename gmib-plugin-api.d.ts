@@ -193,6 +193,10 @@ export type PluginOutputProfile = {
   pageId: string;
   autoStart: boolean;
 };
+export type PluginOutputLayout = {
+  profile: PluginOutputProfile;
+  players?: Array<{ playerId: number; playing: boolean }>;
+};
 export type PluginOutputApi = {
   /** Plugin API 1.2, requires player.control; never focuses GMIB. */
   listPlayers?: () => Promise<
@@ -210,6 +214,10 @@ export type PluginOutputApi = {
     active: boolean;
     message: string;
   }>;
+  /** Optional Plugin API 1.2: coordinated replacement with readiness and rollback.
+   * Requires output.control; player changes additionally require player.control.
+   */
+  applyLayout?: (layout: PluginOutputLayout) => Promise<void>;
   start: (profile: PluginOutputProfile) => Promise<void>;
   stop: () => Promise<void>;
 };

@@ -171,6 +171,49 @@ function createOutputControl({ output, getRecord, persist }) {
       if (failure) throw failure;
       return state();
     }
+    if (typeof output.applyLayout === "function") {
+      const players = new Map(
+        [...playerIds].map((playerId) => [playerId, false]),
+      );
+      if (config.mode === "compact" && config.playerEnabled)
+        players.set(config.playerId, true);
+      const states = [...players].map(([playerId, playing]) => ({
+        playerId,
+        playing,
+      }));
+      const previousStates = before.players
+        .filter((player) => players.has(player.id))
+        .map((player) => ({ playerId: player.id, playing: player.playing }));
+      // The host keeps the old layout in front until its replacement is ready,
+      // and rolls back rejected applications. Never stop it before this call.
+      await output.applyLayout({
+        profile: { screenId, pageId: "screen", autoStart: config.autoStart },
+        ...(states.length ? { players: states } : {}),
+      });
+      try {
+        await persist({ ...getRecord(), outputConfig: config });
+      } catch (error) {
+        // Application succeeded, but saving the plugin's selection did not.
+        try {
+          if (before.status.active && before.status.profile) {
+            await output.applyLayout({
+              profile: before.status.profile,
+              ...(previousStates.length ? { players: previousStates } : {}),
+            });
+          } else {
+            await output.stop();
+            for (const previousState of previousStates)
+              await output.setPlayerState(previousState);
+          }
+        } catch (rollback) {
+          throw Error(
+            `${error.message} Восстановление предыдущего вывода: ${rollback.message}`,
+          );
+        }
+        throw error;
+      }
+      return state();
+    }
     try {
       for (const playerId of playerIds) {
         if (!supported) fail("Обновите GMIB для управления плеером.", 409);
