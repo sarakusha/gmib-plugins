@@ -1634,7 +1634,8 @@ for (const reason of ["no keys", "changed coordinates", "expired forecast"]) {
     );
     weather.forecastSource = "api";
     weather.location = { lat: 55.75, lon: 37.62 };
-    if (reason !== "expired forecast") weather.forecast[0].date = "2026-10-30";
+    for (const part of weather.forecast)
+      part.date = reason === "expired forecast" ? "2026-10-29" : "2026-10-30";
     if (reason === "changed coordinates") weather.location.lat = 1;
     const c = clock(undefined, async () => pageResponse());
     const h = host({ version: 1, weather }, c.runtime);

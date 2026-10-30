@@ -77,6 +77,7 @@
     slide = 0,
     lastSlide = Date.now(),
     lastDate = "",
+    lastForecastPeriod = "",
     skyIndex = 0,
     lastSky = "",
     preview = false,
@@ -206,6 +207,11 @@
       const hasDate = Boolean(d.calendar || d.weekday);
       document.querySelector(".date-area").hidden = !hasDate;
       $("time-join").hidden = settings.date.lines !== 1 || !hasDate;
+    }
+    const forecastPeriod = `${dayKey}/${Math.floor(Number(p.hour) / 6)}`;
+    if (forecastPeriod !== lastForecastPeriod) {
+      lastForecastPeriod = forecastPeriod;
+      render();
     }
     fitDateTime();
     updateSky(now);
@@ -364,7 +370,14 @@
       ? "100%"
       : `${settings.layout.leftWidth}px`;
   }
-  function availableSlides() {
+  function upcomingForecast() {
+    return InformerWeather.nextForecast(
+      snapshot?.weather?.forecast,
+      new Date(),
+      settings.clock.timeZone,
+    );
+  }
+  function availableSlides(forecast = upcomingForecast()) {
     const w = snapshot?.weather;
     if (!w) return ["empty"];
     const a = [];
@@ -374,12 +387,7 @@
       [w.windSpeed, w.pressureMm, w.humidity].some(Number.isFinite)
     )
       a.push("details");
-    if (
-      settings.slides.forecast &&
-      Array.isArray(w.forecast) &&
-      w.forecast.length
-    )
-      a.push("forecast");
+    if (settings.slides.forecast && forecast.length) a.push("forecast");
     return a.length ? a : ["empty"];
   }
   function forecastItem(f, index) {
@@ -410,7 +418,8 @@
   function render() {
     const weather = snapshot?.weather;
     const compact = document.body.classList.contains("compact");
-    const slides = availableSlides(),
+    const forecast = upcomingForecast();
+    const slides = availableSlides(forecast),
       kind = !weather
         ? "empty"
         : compact
@@ -442,11 +451,11 @@
     if (kind === "empty")
       html = '<div class="empty-weather">Погода недоступна</div>';
     if (kind === "current")
-      html = `<div class="weather-current"><div class="weather-icon">${weatherIcon(weather, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${(weather.forecast || []).slice(0, 2).map(forecastItem).join("")}</div>`}`;
+      html = `<div class="weather-current"><div class="weather-icon">${weatherIcon(weather, timeOfDay(new Date()) === "night" ? "n" : "d")}</div><div><div class="weather-temp">${temp(weather.temp)}</div><div class="weather-condition">${condition(weather.condition)}</div>${Number.isFinite(weather.feelsLike) ? `<div class="weather-sub">Ощущается как ${temp(weather.feelsLike)}</div>` : ""}</div></div>${compact ? "" : `<div class="forecast-row">${forecast.map(forecastItem).join("")}</div>`}`;
     if (kind === "details")
       html = `<div class="weather-caption">Погодные условия</div>${metrics(weather)}`;
     if (kind === "forecast")
-      html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${weather.forecast.slice(0, 2).map(forecastItem).join("")}</div>`;
+      html = `<div class="weather-caption">Прогноз · сохранённый снимок</div><div class="forecast-row">${forecast.map(forecastItem).join("")}</div>`;
     const markup = `${weatherKind}/${metricsHtml}/${html}`;
     if (markup === lastWeatherMarkup) {
       fitWeatherContent();

@@ -175,6 +175,11 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
   const forecast = [];
   for (const day of days) {
     if (!object(day) || !calendarDate(day.date)) continue;
+    const sequential =
+      !Array.isArray(raw.forecasts) && Array.isArray(day.parts);
+    const periodOrder = ["night", "morning", "day", "evening"];
+    let periodDate = day.date;
+    let previousPeriod = -1;
     const parts = Array.isArray(day.parts)
       ? day.parts
       : object(day.parts)
@@ -189,11 +194,19 @@ function normalizeWeather(raw, fetchedAt = Date.now()) {
         !["day", "evening", "night", "morning"].includes(part.part_name)
       )
         continue;
+      const period = periodOrder.indexOf(part.part_name);
+      // Informers returns upcoming periods, unlike the calendar-day forecasts.
+      // Its first period has no separate date; retain the supplied base date.
+      if (sequential && period < previousPeriod)
+        periodDate = new Date(Date.parse(`${periodDate}T00:00:00Z`) + 86400000)
+          .toISOString()
+          .slice(0, 10);
+      previousPeriod = period;
       const tempMin = optional(part.temp_min, -100, 70),
         tempMax = optional(part.temp_max, -100, 70);
       if (tempMin === null || tempMax === null || tempMin > tempMax) continue;
       forecast.push({
-        date: day.date,
+        date: periodDate,
         part: part.part_name,
         tempMin,
         tempMax,
