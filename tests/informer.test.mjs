@@ -1911,7 +1911,7 @@ test("light page updates discover action once, retain optional weather and refre
   assert.equal((await h.call("GET", "/state")).weather.temp, 8);
   await h.dispose();
 });
-for (const previousRevision of [undefined, 2]) {
+for (const previousRevision of [undefined, 2, 3]) {
   test(`parser upgrade rebuilds revision ${previousRevision ?? "missing"} page cache on schedule without conditional GET then returns to light updates`, async () => {
     const c = lightClock();
     const h = host(undefined, c.runtime);
@@ -1920,7 +1920,7 @@ for (const previousRevision of [undefined, 2]) {
     await c.advance();
     const state = await h.call("GET", "/state");
     const saved = structuredClone(h.data.get(KEY));
-    assert.equal(saved.pageCache.parserRevision, 3);
+    assert.equal(saved.pageCache.parserRevision, 4);
     if (previousRevision === undefined) delete saved.pageCache.parserRevision;
     else saved.pageCache.parserRevision = previousRevision;
     saved.pageCache.etag = '"old-html"';
@@ -1937,7 +1937,7 @@ for (const previousRevision of [undefined, 2]) {
     assert.notEqual(options.method, "POST");
     assert.equal(new Headers(options.headers).has("if-none-match"), false);
     assert.equal(new Headers(options.headers).has("if-modified-since"), false);
-    assert.equal(restarted.data.get(KEY).pageCache.parserRevision, 3);
+    assert.equal(restarted.data.get(KEY).pageCache.parserRevision, 4);
     const rebuilt = await restarted.call("GET", "/state");
     assert.equal(rebuilt.weather.forecastSource, "page");
     await c.advance(rebuilt.cache.page.nextRequestAt);

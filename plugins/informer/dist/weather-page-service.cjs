@@ -13,7 +13,7 @@ const {
 const { mergeForecast } = require("./weather-forecast.cjs");
 const DAY = 86400000;
 // Bump when parsing changes require rebuilding weather from full HTML.
-const PAGE_PARSER_REVISION = 3;
+const PAGE_PARSER_REVISION = 4;
 const pageDefaults = Object.freeze({
   enabled: false,
   url: "",

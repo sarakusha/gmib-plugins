@@ -271,7 +271,7 @@ function parsePage(html, location, fetchedAt = Date.now()) {
       hourlyParts.get(key).set(hour, temperature);
     }
   }
-  const forecasts = [];
+  const forecasts = new Map();
   const months = [
     "января",
     "февраля",
@@ -297,7 +297,6 @@ function parsePage(html, location, fetchedAt = Date.now()) {
     if (month - Number(baseDate.slice(5, 7)) > 6) year--;
     const day = {
       date: `${year}-${String(month).padStart(2, "0")}-${match[1].padStart(2, "0")}`,
-      parts: [],
     };
     walk(
       card,
@@ -331,11 +330,21 @@ function parsePage(html, location, fetchedAt = Date.now()) {
           },
           true,
         );
-        const hours = hourlyParts.get(`${day.date}:${name}`);
+        // Website cards run morning → day → evening → the following night.
+        // API forecast parts already use calendar dates; adapt only page cards.
+        const partDate =
+          name === "night"
+            ? new Date(Date.parse(`${day.date}T00:00:00Z`) + 86400000)
+                .toISOString()
+                .slice(0, 10)
+            : day.date;
+        const hours = hourlyParts.get(`${partDate}:${name}`);
         const temperatures =
           hours?.size === 6 ? [...hours.values()] : [temperature];
-        if (Number.isFinite(temperature))
-          day.parts.push({
+        if (Number.isFinite(temperature)) {
+          if (!forecasts.has(partDate))
+            forecasts.set(partDate, { date: partDate, parts: [] });
+          forecasts.get(partDate).parts.push({
             part_name: name,
             temp_min: Math.min(...temperatures),
             temp_max: Math.max(...temperatures),
@@ -343,10 +352,10 @@ function parsePage(html, location, fetchedAt = Date.now()) {
             daytime: ["night", "evening"].includes(name) ? "n" : "d",
             ...(iconUrl ? { iconUrl } : {}),
           });
+        }
       },
       true,
     );
-    forecasts.push(day);
   }
   const iconUrl = pageIcon(fact.iconUrl || fact.icon);
   let weather;
@@ -365,7 +374,9 @@ function parsePage(html, location, fetchedAt = Date.now()) {
           humidity: fact.humidity,
           ...(iconUrl ? { iconUrl } : {}),
         },
-        forecasts,
+        forecasts: [...forecasts.values()].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        ),
       },
       fetchedAt,
     );
