@@ -140,3 +140,12 @@ test("solarDays supports previous-day offset with current day unavailable", () =
     "test:2026-11-03",
   );
 });
+
+test("every auto-brightness point and legacy aliases can trigger jobs", () => {
+  for (const event of ["dawn", "sunrise", "sunriseEnd", "goldenHourEnd", "solarNoon", "goldenHour", "sunsetStart", "sunset", "dusk", "nadir", "day", "night"]) {
+    const job = validateJob({ ...input, event, offsetMinutes: 30 });
+    const env = { timeZone: "Europe/Moscow", solar: { [event]: "2026-11-02T14:00:00Z" } };
+    assert.equal(due(job, Date.parse("2026-11-02T14:30:10Z"), env), "test:2026-11-02");
+    assert.equal(due(job, Date.parse("2026-11-02T14:30:10Z"), {...env,solar:{[event]:null}}), null);
+  }
+});

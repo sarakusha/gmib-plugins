@@ -58,7 +58,7 @@ const validateJob = (input) => {
   result.kind = choice(input.kind, ["once", "daily"], "Повторение");
   result.event = choice(
     input.event,
-    ["time", "sunrise", "day", "sunset", "night"],
+    ["time", "dawn", "sunrise", "sunriseEnd", "goldenHourEnd", "solarNoon", "goldenHour", "sunsetStart", "sunset", "dusk", "nadir", "day", "night"],
     "Событие",
   );
   if (result.kind === "once") result.date = validDate(input.date);
