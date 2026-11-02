@@ -502,8 +502,10 @@ header button:hover:not(:disabled) {
   border-color: #a5b5b3;
 }
 
-#channels[aria-busy="true"] .toggle:disabled {
-  cursor: progress;
+/* Keep the cursor stable: native cursors may not repaint until the mouse moves. */
+.toggle,
+.toggle:disabled {
+  cursor: default;
 }
 #device-count {
   color: var(--text, #243033);
