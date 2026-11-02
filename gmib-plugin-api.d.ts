@@ -202,6 +202,7 @@ export type PluginOutputLayout = {
   players?: Array<{ playerId: number; playing: boolean }>;
 };
 export type PluginOutputApi = {
+  setAutoStart?: (enabled: boolean) => Promise<void>;
   /** Plugin API 1.2, requires player.control; never focuses GMIB. */
   listPlayers?: () => Promise<
     Array<{ id: number; name: string; playing: boolean }>

@@ -69,6 +69,7 @@
     outputBusy = false,
     outputBound = false,
     outputRevision = 0,
+    savedOutputRevision = 0,
     outputCommandGeneration = 0,
     outputTimer = null,
     ws = null,
@@ -793,6 +794,7 @@
       selectedOutputScreen("compact-screen-select")?.id ?? null;
     const mode = $("output-mode").value;
     if (
+      command !== "configure" &&
       !(mode === "compact" ? compactScreenId !== null : wideScreenId !== null)
     )
       throw Error("Выберите экран для текущего режима.");
@@ -837,6 +839,7 @@
         ...(config ? { config } : {}),
       });
       renderOutput(data, revision === outputRevision);
+      savedOutputRevision = revision;
       if (typeof data?.status?.active !== "boolean")
         throw Error(
           "GMIB не подтвердил состояние вывода. Обновите состояние и повторите попытку.",
@@ -876,11 +879,7 @@
             body.appearance.valueAnimation ||
           data?.settings?.appearance?.showSource !==
             body.appearance.showSource ||
-          [
-            "burnInProtection",
-            "burnInDistance",
-            "burnInSpeed",
-          ].some(
+          ["burnInProtection", "burnInDistance", "burnInSpeed"].some(
             (field) =>
               data?.settings?.appearance?.[field] !== body.appearance[field],
           ) ||
@@ -941,8 +940,10 @@
     .forEach((input) => input.addEventListener("input", preview));
   $("burn-in-demo").addEventListener("input", preview);
   $("save").addEventListener("click", async () => {
-    if (saving || !ready) return;
+    if (saving || outputBusy || !ready) return;
     saving = true;
+    outputBusy = true;
+    updateOutputControls();
     $("save").disabled = true;
     $("save").textContent = "Применение…";
     try {
@@ -950,6 +951,11 @@
         throw Error(
           "Перезапустите GMIB, чтобы сохранять новые настройки Informer.",
         );
+      const revision = outputRevision;
+      const outputConfig =
+        outputBound && revision !== savedOutputRevision
+          ? readOutputConfig("configure")
+          : null;
       readDraft();
       await action(
         "settings",
@@ -957,12 +963,23 @@
         { ...draft, weatherSource: readSource() },
         "Настройки применены",
       );
+      if (outputConfig) {
+        outputCommandGeneration += 1;
+        const data = await api("output", "PUT", {
+          command: "configure",
+          config: outputConfig,
+        });
+        renderOutput(data, revision === outputRevision);
+        savedOutputRevision = revision;
+      }
       toast("Настройки применены");
     } catch (e) {
       if (!$("feedback").textContent.includes(e.message)) show(e.message, true);
       toast(e.message, true);
     } finally {
       saving = false;
+      outputBusy = false;
+      updateOutputControls();
       $("save").textContent = "Применить";
       $("save").disabled = !ready || !settingsSupported;
     }

@@ -133,7 +133,29 @@ function createOutputControl({ output, getRecord, persist }) {
     if (name !== "hide" && name !== "configure" && screenId === null)
       fail("Выберите экран для этого режима.");
     if (name === "configure") {
-      await persist({ ...getRecord(), outputConfig: config });
+      const hostAutoStart = Boolean(before.status.profile?.autoStart);
+      const updateHost =
+        before.status.profile && hostAutoStart !== config.autoStart;
+      if (updateHost && typeof output.setAutoStart !== "function")
+        fail(
+          "Обновите GMIB, чтобы изменить автозапуск без переключения вывода.",
+          409,
+        );
+      if (updateHost) await output.setAutoStart(config.autoStart);
+      try {
+        await persist({ ...getRecord(), outputConfig: config });
+      } catch (error) {
+        if (updateHost) {
+          try {
+            await output.setAutoStart(hostAutoStart);
+          } catch (rollback) {
+            throw Error(
+              `${error.message} Восстановление автозапуска: ${rollback.message}`,
+            );
+          }
+        }
+        throw error;
+      }
       return state();
     }
     const playerIds = new Set();

@@ -351,3 +351,58 @@ test("hide retains explicit player stop and output stop when atomic layout is av
   assert.deepEqual(h.calls, ["player:7:false", "hide"]);
   await h.dispose();
 });
+
+test("configure persists disabled autostart across restart without showing or hiding", async () => {
+  const {
+    createOutputControl,
+  } = require("../plugins/informer/dist/output-control.cjs");
+  let record = { outputConfig: { ...config, autoStart: true } };
+  let profile = { screenId: 1, pageId: "screen", autoStart: true };
+  const output = {
+    listScreens: async () => [
+      { id: 1, width: 704, height: 192 },
+      { id: 2, width: 320, height: 192 },
+    ],
+    listPlayers: async () => [{ id: 7 }],
+    setPlayerState: async () => assert.fail("must not change player"),
+    getStatus: async () => ({ active: true, profile }),
+    setAutoStart: async (enabled) => {
+      profile = { ...profile, autoStart: enabled };
+    },
+    start: async () => assert.fail("must not show"),
+    stop: async () => assert.fail("must not hide"),
+  };
+  const boot = () =>
+    createOutputControl({
+      output,
+      getRecord: () => record,
+      persist: async (next) => {
+        record = structuredClone(next);
+      },
+    });
+  await boot().command("configure", config);
+  assert.equal(profile.autoStart, false);
+  assert.equal((await boot().state()).config.autoStart, false);
+  const failing = createOutputControl({
+    output,
+    getRecord: () => record,
+    persist: async () => {
+      throw Error("disk full");
+    },
+  });
+  await assert.rejects(
+    failing.command("configure", { ...config, autoStart: true }),
+    /disk full/,
+  );
+  assert.equal(
+    profile.autoStart,
+    false,
+    "host setting rolls back after storage failure",
+  );
+  delete output.setAutoStart;
+  await assert.rejects(
+    boot().command("configure", { ...config, autoStart: true }),
+    /Обновите GMIB/,
+  );
+  assert.equal(record.outputConfig.autoStart, false);
+});
