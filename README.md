@@ -133,8 +133,7 @@ GMIB 5.7.1 добавляет разрешение `player.control` и мето�
 активации главного окна GMIB. Контракты, ошибки, совместимость и примеры:
 [docs/plugin-output-api.md](docs/plugin-output-api.md).
 
-## KeUSB-24R (локальная разработка)
+## KeUSB-24R
 
 Проект: [plugins/keusb-24r](plugins/keusb-24r/README.md). Управление реле, расписания,
-условия освещённости и PWA. Требуется локальная сборка GMIB с Plugin API 1.3;
-в публичный каталог не опубликован. Сборка: `node scripts/build.mjs --plugin keusb-24r`.
+условия освещённости и PWA. Требуется GMIB 5.7.4 или новее с Plugin API 1.3. Сборка: `node scripts/build.mjs --plugin keusb-24r`.

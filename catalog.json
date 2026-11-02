@@ -1,13 +1,85 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-30T11:29:25.822Z",
+  "generatedAt": "2026-11-02T12:09:32.034Z",
   "source": "https://github.com/sarakusha/gmib-plugins",
   "plugins": [
     {
       "manifest": {
+        "id": "icehockey",
+        "name": "Хоккей",
+        "version": "1.0.0",
+        "description": "Счёт, системный таймер и штрафы. Работает без базы составов.",
+        "gmibApi": "^1.1.0",
+        "main": "backend/main.cjs",
+        "public": "public",
+        "localOnly": true,
+        "optionalDependencies": {
+          "sports-roster": "^1.0.0"
+        },
+        "contributes": {
+          "sports": [
+            {
+              "id": "icehockey",
+              "name": "Хоккей",
+              "rosterVersion": 1,
+              "positions": [
+                {
+                  "id": "skater",
+                  "name": "Полевой игрок"
+                },
+                {
+                  "id": "goalie",
+                  "name": "Вратарь"
+                }
+              ]
+            }
+          ]
+        },
+        "permissions": [
+          "http.routes",
+          "database",
+          "services.consume",
+          "realtime",
+          "output.pages",
+          "storage",
+          "output.control",
+          "nibus.read",
+          "nibus.write"
+        ],
+        "pages": [
+          {
+            "id": "screen",
+            "title": "Хоккей/Табло",
+            "path": "screen.html"
+          },
+          {
+            "id": "rosters",
+            "title": "Хоккей/Составы",
+            "path": "rosters.html"
+          }
+        ],
+        "control": {
+          "title": "Пульт хоккея",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/icehockey-v1.0.0/icehockey.gmib-plugin",
+        "sha256": "eb40129b0f5c8698e244f88b8b5ddd56a49d70ee1a63bfac70e50998a3afcd8c",
+        "size": 36937
+      }
+    },
+    {
+      "manifest": {
         "id": "informer",
         "name": "Informer — часы и погода",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "description": "Адаптивные часы, дата и погода с кешем и суточным бюджетом запросов.",
         "gmibApi": "^1.2.0",
         "main": "dist/main.cjs",
@@ -39,9 +111,41 @@
       },
       "repository": "https://github.com/sarakusha/gmib-plugins",
       "release": {
-        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/informer-v1.0.2/informer.gmib-plugin",
-        "sha256": "47995fc87b23f79d62563d293484eec65a618df0cf46f9f99a4443fabb9f85fa",
-        "size": 495064
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/informer-v1.0.3/informer.gmib-plugin",
+        "sha256": "984f094d6f1f64e251137bae557cbd712c5602fc4c212ce7a28e65452ed1afe1",
+        "size": 499494
+      }
+    },
+    {
+      "manifest": {
+        "id": "keusb-24r",
+        "name": "KeUSB-24R",
+        "version": "1.0.0",
+        "description": "Управление четырьмя реле: вручную, по времени и освещённости.",
+        "gmibApi": "^1.3.0",
+        "main": "dist/main.cjs",
+        "public": "public",
+        "permissions": [
+          "http.routes",
+          "storage",
+          "serial.control",
+          "environment.read"
+        ],
+        "control": {
+          "title": "Управление реле",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/keusb-24r-v1.0.0/keusb-24r.gmib-plugin",
+        "sha256": "3aed0b9d07c86f92d94a7d4da641312091a0152f519c8c7a699f0ee2da77963c",
+        "size": 24130
       }
     },
     {
@@ -118,8 +222,42 @@
       "repository": "https://github.com/sarakusha/gmib-plugins",
       "release": {
         "url": "https://github.com/sarakusha/gmib-plugins/releases/download/shader-screensavers-v1.0.0/shader-screensavers.gmib-plugin",
-        "sha256": "7a1fc439e35467764c434a5e8ec977240fe559c974aebc4246318457995e1a84",
-        "size": 11657
+        "sha256": "bcc02b8bf79bd6a1978330d068f8b525837b1474a303dba9ec869877fc5015da",
+        "size": 15447
+      }
+    },
+    {
+      "manifest": {
+        "id": "sports-roster",
+        "name": "Составы команд",
+        "version": "1.0.0",
+        "description": "Общий справочник команд и участников для спортивных плагинов.",
+        "gmibApi": "^1.1.0",
+        "main": "backend/main.cjs",
+        "public": "public",
+        "localOnly": true,
+        "permissions": [
+          "http.routes",
+          "database",
+          "services.provide",
+          "plugins.read",
+          "realtime"
+        ],
+        "control": {
+          "title": "Составы команд",
+          "path": "control.html"
+        }
+      },
+      "publisher": {
+        "id": "sarakusha",
+        "name": "gmib official",
+        "verified": true
+      },
+      "repository": "https://github.com/sarakusha/gmib-plugins",
+      "release": {
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/sports-roster-v1.0.0/sports-roster.gmib-plugin",
+        "sha256": "63b1d1d2acb6f9aaa3b82b386a030f381e59ee6ef12b89de0833021fd60eaba6",
+        "size": 19061
       }
     },
     {

@@ -1,7 +1,7 @@
 {
   "id": "informer",
   "name": "Informer — часы и погода",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Адаптивные часы, дата и погода с кешем и суточным бюджетом запросов.",
   "gmibApi": "^1.2.0",
   "main": "dist/main.cjs",
