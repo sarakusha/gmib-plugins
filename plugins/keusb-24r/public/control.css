@@ -80,7 +80,7 @@ button:hover:not(:disabled) {
 }
 button:disabled {
   opacity: 0.45;
-  cursor: not-allowed;
+  cursor: default;
 }
 button:focus-visible,
 input:focus-visible,
@@ -500,4 +500,12 @@ header button:hover:not(:disabled) {
   background: #314044;
   color: #fff;
   border-color: #a5b5b3;
+}
+
+#channels[aria-busy="true"] .toggle:disabled {
+  cursor: progress;
+}
+#device-count {
+  color: var(--text, #243033);
+  font-weight: 600;
 }

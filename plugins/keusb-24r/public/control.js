@@ -54,7 +54,13 @@
   }
   function setConnection(value, error) {
     online = value;
-    $("connection").textContent = value ? "Связь с GMIB" : "Нет связи с GMIB";
+    $("connection").textContent = value
+      ? busy ? "Выполнение команды…" : "Связь с GMIB"
+      : "Нет связи с GMIB";
+    $("channels").setAttribute("aria-busy", String(busy));
+    $("device-count").textContent = value && snapshot
+      ? `Найдено реле: ${snapshot.devices.filter(device => device.connected).length}`
+      : "Найдено реле: — (нет связи)";
     $("notice").hidden = value;
     $("notice").textContent =
       error || "Нет связи. Показаны последние данные; управление недоступно.";
