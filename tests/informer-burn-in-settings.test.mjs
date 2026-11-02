@@ -11,7 +11,6 @@ const fields = [
   "burnInProtection",
   "burnInDistance",
   "burnInSpeed",
-  "burnInDemo",
 ];
 
 test("legacy settings migrate protection without resetting appearance", () => {
@@ -39,7 +38,7 @@ test("protection validates independent discrete levels and explicit booleans", (
       assert.equal(validateSettings(settings).appearance[field], value);
     }
   }
-  for (const field of ["burnInProtection", "burnInDemo"]) {
+  for (const field of ["burnInProtection"]) {
     const settings = structuredClone(defaults);
     settings.appearance[field] = "false";
     assert.throws(() => validateSettings(settings), /защиты от выгорания/);
@@ -83,6 +82,8 @@ test("protection settings survive API save and backend restart", async () => {
   });
   const result = await call("put", "/settings", settings);
   assert.ok(result.settings);
+  assert.equal(Object.hasOwn(result.settings.appearance, "burnInDemo"), false);
+  assert.equal(Object.hasOwn(saved.settings.appearance, "burnInDemo"), false);
   const restarted = await boot();
   const state = await restarted("get", "/state");
   for (const field of fields)

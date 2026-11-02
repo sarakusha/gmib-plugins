@@ -18,7 +18,6 @@
       burnInProtection: true,
       burnInDistance: 2,
       burnInSpeed: 2,
-      burnInDemo: false,
       shadow: 0.6,
       dim: 0.15,
       outline: 0,
@@ -36,6 +35,7 @@
   };
   const burnIn = InformerBurnIn.create(document);
   let burnInFrame;
+  let previewDemo = false;
   const fonts = {
     sans: "Arial,Helvetica,sans-serif",
     mono: "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace",
@@ -581,12 +581,14 @@
   }
   addEventListener("message", (event) => {
     if (
+      !isPreview ||
       event.origin !== location.origin ||
       event.source !== parent ||
       event.data?.type !== "informer:preview"
     )
       return;
     preview = true;
+    previewDemo = event.data.burnInDemo === true;
     if (event.data.snapshot) accept(event.data.snapshot);
     if (event.data.source)
       $("test-output").hidden = event.data.source.useLastResponse === false;
@@ -622,7 +624,10 @@
     refreshTimer = setInterval(fetchState, 60000);
   }
   function animateBurnIn(now) {
-    burnIn.tick(now, settings.appearance);
+    burnIn.tick(now, {
+      ...settings.appearance,
+      burnInDemo: isPreview && previewDemo,
+    });
     burnInFrame = requestAnimationFrame(animateBurnIn);
   }
   burnInFrame = requestAnimationFrame(animateBurnIn);

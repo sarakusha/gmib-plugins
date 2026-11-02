@@ -105,7 +105,6 @@ function validateSettings(value) {
             "burnInProtection",
             "burnInDistance",
             "burnInSpeed",
-            "burnInDemo",
           ].includes(field) &&
           value[key][field] === undefined
             ? defaults.appearance[field]
@@ -153,7 +152,6 @@ function validateSettings(value) {
   }
   if (
     typeof appearance.burnInProtection !== "boolean" ||
-    typeof appearance.burnInDemo !== "boolean" ||
     !Number.isInteger(appearance.burnInDistance) ||
     !number(appearance.burnInDistance, 1, 5) ||
     !Number.isInteger(appearance.burnInSpeed) ||

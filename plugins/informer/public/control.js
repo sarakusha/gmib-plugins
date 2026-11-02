@@ -14,7 +14,6 @@
       backdrop: "gradient",
       valueAnimation: "none",
       burnInProtection: true,
-      burnInDemo: false,
       burnInDistance: 2,
       burnInSpeed: 2,
       showSource: false,
@@ -251,6 +250,7 @@
     frame.contentWindow?.postMessage(
       {
         type: "informer:preview",
+        burnInDemo: $("burn-in-demo").checked,
         settings: draft,
         snapshot: previewSnapshot,
         source: {
@@ -639,7 +639,6 @@
       ["none", "flip"].includes(data.settings.appearance?.valueAnimation) &&
       typeof data.settings.appearance?.showSource === "boolean" &&
       typeof data.settings.appearance?.burnInProtection === "boolean" &&
-      typeof data.settings.appearance?.burnInDemo === "boolean" &&
       Number.isInteger(data.settings.appearance?.burnInDistance) &&
       Number.isInteger(data.settings.appearance?.burnInSpeed) &&
       Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
@@ -881,7 +880,6 @@
             "burnInProtection",
             "burnInDistance",
             "burnInSpeed",
-            "burnInDemo",
           ].some(
             (field) =>
               data?.settings?.appearance?.[field] !== body.appearance[field],
@@ -941,22 +939,7 @@
   document
     .querySelectorAll("[data-path],[data-date-option]")
     .forEach((input) => input.addEventListener("input", preview));
-  $("burn-in-reset").addEventListener("click", () => {
-    for (const field of [
-      "burnInProtection",
-      "burnInDistance",
-      "burnInSpeed",
-      "burnInDemo",
-    ]) {
-      const input = document.querySelector(`[data-path="appearance.${field}"]`);
-      if (input.type === "checkbox") input.checked = defaults.appearance[field];
-      else input.value = defaults.appearance[field];
-    }
-    preview();
-    toast(
-      "Рекомендуемые параметры восстановлены. Нажмите «Применить» для сохранения.",
-    );
-  });
+  $("burn-in-demo").addEventListener("input", preview);
   $("save").addEventListener("click", async () => {
     if (saving || !ready) return;
     saving = true;
