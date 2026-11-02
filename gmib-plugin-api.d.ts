@@ -1,6 +1,6 @@
-/** Public authoring types for gmib Plugin API 1.2. */
+/** Public authoring types for gmib Plugin API 1.3. */
 
-export const GMIB_PLUGIN_API_VERSION: "1.2.0";
+export const GMIB_PLUGIN_API_VERSION: "1.3.0";
 
 export type PluginPermission =
   | "http.routes"
@@ -14,7 +14,9 @@ export type PluginPermission =
   | "output.control"
   | "player.control"
   | "nibus.read"
-  | "nibus.write";
+  | "nibus.write"
+  | "serial.control"
+  | "environment.read";
 
 export type PluginOutputPage = {
   id: string;
@@ -109,6 +111,8 @@ export type PluginContext = PluginServicesContext & {
     publish: (event: string, data?: unknown) => void;
   };
   nibus: PluginNibusApi;
+  serial: PluginSerialApi;
+  environment: PluginEnvironmentApi;
   output: PluginOutputApi & {
     registerPage: (page: PluginOutputPage) => Promise<void>;
   };
@@ -274,4 +278,22 @@ export type PluginNibusApi = {
     target: string;
     profile: "matchpad";
   }) => Promise<PluginNibusOutput>;
+};
+
+export type PluginEnvironmentSnapshot = {
+  timeZone: string;
+  solar: { sunrise: string | null; day: string | null; sunset: string | null; night: string | null };
+  solarDays?: PluginEnvironmentSnapshot['solar'][];
+  sensors: { id: string; name: string; lux: number; updatedAt: string }[];
+};
+export type PluginEnvironmentApi = { snapshot: () => Promise<PluginEnvironmentSnapshot> };
+
+export type PluginSerialDevice = { path: string; vendorId?: string; productId?: string; serialNumber?: string; manufacturer?: string };
+export type PluginSerialConnection = {
+  request: (command: string, responsePrefix: string) => Promise<string>;
+  close: () => Promise<void>;
+};
+export type PluginSerialApi = {
+  list: () => Promise<PluginSerialDevice[]>;
+  open: (options: { path: string; baudRate: number; vendorId: string; productId: string }) => Promise<PluginSerialConnection>;
 };

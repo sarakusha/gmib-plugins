@@ -1,0 +1,11 @@
+{
+  "id": "keusb-24r",
+  "name": "KeUSB-24R",
+  "version": "1.0.0",
+  "description": "Управление четырьмя реле: вручную, по времени и освещённости.",
+  "gmibApi": "^1.3.0",
+  "main": "dist/main.cjs",
+  "public": "public",
+  "permissions": ["http.routes", "storage", "serial.control", "environment.read"],
+  "control": { "title": "Управление реле", "path": "control.html" }
+}

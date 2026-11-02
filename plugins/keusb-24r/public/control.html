@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#182123" />
+    <title>KeUSB-24R · Управление реле</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" />
+    <link rel="stylesheet" href="control.css" />
+    <script defer src="control.js"></script>
+    <script defer src="pwa.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">GMIB / УПРАВЛЕНИЕ РЕЛЕ</span>
+        <h1>KeUSB-24R</h1>
+      </div>
+      <div class="header-actions">
+        <span id="connection" role="status">Подключение…</span
+        ><button id="install-app" hidden>Установить</button
+        ><button id="refresh" aria-label="Обновить состояние">Обновить</button>
+      </div>
+    </header>
+    <main>
+      <div id="notice" role="status" hidden></div>
+      <section class="context">
+        <div>
+          <label for="mode">Режим управления</label
+          ><select id="mode" disabled>
+            <option value="group">Совместно</option>
+            <option value="individual">По отдельности</option>
+          </select>
+        </div>
+        <div>
+          <label for="device">Устройство</label
+          ><select id="device" disabled>
+            <option>Нет подключённых устройств</option>
+          </select>
+        </div>
+        <div id="environment" class="environment">
+          Данные GMIB пока недоступны
+        </div>
+      </section>
+      <nav aria-label="Разделы">
+        <button class="active" data-tab="outputs" aria-current="page">
+          Выходы</button
+        ><button data-tab="automation">
+          Автоматизация <span id="job-count"></span></button
+        ><button data-tab="history">Журнал</button>
+      </nav>
+      <section id="outputs" class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Состояние выходов</h2>
+            <p id="device-summary">Ожидание устройства</p>
+          </div>
+          <span id="updated" class="muted"></span>
+        </div>
+        <div id="channels"></div>
+        <p class="footnote">
+          Состояние обновляется по ответу устройства. Ручная команда не
+          отключает автоматизацию.
+        </p>
+      </section>
+      <section id="automation" class="panel" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>Задания</h2>
+            <p>Время и солнечные события берутся из GMIB.</p>
+          </div>
+          <button class="primary" id="add-job" disabled>
+            Добавить задание
+          </button>
+        </div>
+        <div id="jobs"></div>
+        <div class="section-heading rule-heading">
+          <div>
+            <h2>По освещённости</h2>
+            <p>Выберите датчик GMIB и диапазон освещённости.</p>
+          </div>
+          <button class="primary" id="add-rule" disabled>
+            Добавить условие
+          </button>
+        </div>
+        <div id="rules"></div>
+      </section>
+      <section id="history" class="panel" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>Журнал изменений</h2>
+            <p>За последние 7 дней</p>
+          </div>
+          <label
+            >Фильтр устройства<select id="log-device">
+              <option value="">Все устройства</option>
+            </select></label
+          >
+        </div>
+        <div id="logs"></div>
+      </section>
+    </main>
+    <div id="toast" role="status" hidden></div>
+    <dialog id="editor">
+      <form id="edit-form">
+        <div class="dialog-heading">
+          <h2 id="editor-title">Задание</h2>
+          <button type="button" id="close-editor" aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+        <label
+          >Название<input
+            id="edit-name"
+            required
+            maxlength="80"
+            placeholder="Вечернее освещение" /></label
+        ><label>Устройство<select id="edit-target"></select></label
+        ><label class="check"
+          ><input type="checkbox" id="edit-enabled" checked />Активно</label
+        >
+        <div id="schedule-fields">
+          <div class="form-grid">
+            <label
+              >Повтор<select id="edit-repeat">
+                <option value="daily">Ежедневно</option>
+                <option value="once">Один раз</option>
+              </select></label
+            ><label id="date-field" hidden
+              >Дата<input id="edit-date" type="date" /></label
+            ><label
+              >Момент выполнения<select id="edit-event">
+                <option value="time">Время</option>
+                <option value="sunset">Заход солнца</option>
+                <option value="sunrise">Восход солнца</option>
+                <option value="day">Начало дня</option>
+                <option value="night">Начало ночи</option>
+              </select></label
+            ><label id="time-field"
+              >Время<input id="edit-time" type="time" value="20:00" /></label
+            ><label id="offset-field" hidden
+              >Смещение, минуты<input
+                id="edit-offset"
+                type="number"
+                min="-720"
+                max="720"
+                step="1"
+                value="0"
+              /><small
+                >Например, 30 — через полчаса; −30 — за полчаса.</small
+              ></label
+            >
+          </div>
+        </div>
+        <div id="lux-fields" hidden>
+          <label>Датчик освещённости<select id="edit-sensor"></select></label>
+          <div class="form-grid">
+            <label
+              >Условие<select id="edit-comparison">
+                <option value="lt">Меньше</option>
+                <option value="between">В диапазоне</option>
+                <option value="gt">Больше</option>
+              </select></label
+            ><label
+              ><span id="threshold-label">Порог, лк</span
+              ><input
+                id="edit-min"
+                type="number"
+                min="0"
+                step="0.1"
+                value="50" /></label
+            ><label id="max-field" hidden
+              >До, лк<input
+                id="edit-max"
+                type="number"
+                min="0"
+                step="0.1"
+                value="200"
+            /></label>
+          </div>
+          <label
+            >Гистерезис, лк<input
+              id="edit-hysteresis"
+              type="number"
+              min="0"
+              step="0.1"
+              value="5"
+            /><small>Защита от частых переключений около порога.</small></label
+          >
+        </div>
+        <fieldset>
+          <legend>Действия с выходами</legend>
+          <p class="muted">«Не менять» сохраняет текущее состояние выхода.</p>
+          <div id="edit-actions"></div>
+        </fieldset>
+        <p id="form-error" role="alert" hidden></p>
+        <div class="dialog-footer">
+          <button type="button" id="cancel-editor">Отмена</button
+          ><button class="primary" id="save-editor" type="submit">
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
