@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   "utf8",
 );
 const scope = "http://localhost:3000/plugins/informer/public/";
-const cacheName = "informer-ui-11";
+const cacheName = "informer-ui-12";
 
 function worker() {
   const listeners = new Map();
@@ -79,13 +79,14 @@ test("install caches the complete shell under the registered plugin scope", asyn
   const sw = worker();
   await sw.lifecycle("install");
   const entries = sw.stores.get(cacheName);
-  assert.equal(entries.size, 29);
+  assert.equal(entries.size, 30);
   for (const url of entries.keys()) assert.equal(url.startsWith(scope), true);
   for (const file of [
     "control.html",
     "pwa.js",
     "icon-180.png",
     "screen.js",
+    "burn-in.js",
     "assets/backgrounds/night-partly.jpg",
     "assets/icons/wind.svg",
   ]) {

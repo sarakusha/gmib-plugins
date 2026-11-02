@@ -97,9 +97,16 @@ function validateSettings(value) {
       } else
         result[key][field] =
           key === "appearance" &&
-          ["backdrop", "showSource", "sourceSize", "valueAnimation"].includes(
-            field,
-          ) &&
+          [
+            "backdrop",
+            "showSource",
+            "sourceSize",
+            "valueAnimation",
+            "burnInProtection",
+            "burnInDistance",
+            "burnInSpeed",
+            "burnInDemo",
+          ].includes(field) &&
           value[key][field] === undefined
             ? defaults.appearance[field]
             : value[key][field];
@@ -144,6 +151,15 @@ function validateSettings(value) {
   } catch {
     fail("Проверьте локаль, часовой пояс и параметры Intl.DateTimeFormat");
   }
+  if (
+    typeof appearance.burnInProtection !== "boolean" ||
+    typeof appearance.burnInDemo !== "boolean" ||
+    !Number.isInteger(appearance.burnInDistance) ||
+    !number(appearance.burnInDistance, 1, 5) ||
+    !Number.isInteger(appearance.burnInSpeed) ||
+    !number(appearance.burnInSpeed, 1, 5)
+  )
+    fail("Некорректные параметры защиты от выгорания");
   if (
     typeof appearance.showSource !== "boolean" ||
     !number(appearance.sourceSize, 8, 160) ||

@@ -15,6 +15,10 @@
       showSource: false,
       sourceSize: 16,
       valueAnimation: "none",
+      burnInProtection: true,
+      burnInDistance: 2,
+      burnInSpeed: 2,
+      burnInDemo: false,
       shadow: 0.6,
       dim: 0.15,
       outline: 0,
@@ -30,6 +34,8 @@
     },
     slides: { seconds: 8, current: true, details: true, forecast: true },
   };
+  const burnIn = InformerBurnIn.create(document);
+  let burnInFrame;
   const fonts = {
     sans: "Arial,Helvetica,sans-serif",
     mono: "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace",
@@ -340,6 +346,7 @@
     layout();
     updateClock();
     render();
+    burnIn.invalidate();
   }
   function layout() {
     const w = innerWidth,
@@ -589,6 +596,7 @@
     layout();
     fitDateTime();
     render();
+    burnIn.invalidate();
   });
   addEventListener("visibilitychange", () => {
     if (!document.hidden) updateClock();
@@ -600,6 +608,8 @@
     clearTimeout(slideTimer);
     clearInterval(refreshTimer);
     clearInterval(tickTimer);
+    cancelAnimationFrame(burnInFrame);
+    burnIn.dispose();
   });
   const isPreview = new URLSearchParams(location.search).has("preview");
   preview = isPreview;
@@ -611,6 +621,11 @@
     connect();
     refreshTimer = setInterval(fetchState, 60000);
   }
+  function animateBurnIn(now) {
+    burnIn.tick(now, settings.appearance);
+    burnInFrame = requestAnimationFrame(animateBurnIn);
+  }
+  burnInFrame = requestAnimationFrame(animateBurnIn);
   tickTimer = setInterval(() => {
     updateClock();
     advance();

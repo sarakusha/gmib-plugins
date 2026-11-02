@@ -689,3 +689,14 @@ body:not(.compact) .forecast-row {
 .page-weather-icon {
   object-fit: contain;
 }
+
+/* Give the moving attribution a dedicated strip, including compact details. */
+body:not(.compact):not(.no-source) .weather-pane {
+  padding-top: max(
+    calc(14px * var(--scale)),
+    calc((var(--source-size) + 3px) * var(--scale))
+  );
+}
+body.compact.weather-details:not(.no-source) .weather-slide {
+  height: max(0px, calc(100% - (var(--source-size) + 3px) * var(--scale)));
+}

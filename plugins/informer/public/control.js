@@ -13,6 +13,10 @@
       theme: "auto",
       backdrop: "gradient",
       valueAnimation: "none",
+      burnInProtection: true,
+      burnInDemo: false,
+      burnInDistance: 2,
+      burnInSpeed: 2,
       showSource: false,
       sourceSize: 16,
       shadow: 0.6,
@@ -162,8 +166,18 @@
             : ""
           : draft.date.options[field] || "";
     });
+    updateBurnInControls();
     $("shadow-value").textContent = draft.appearance.shadow;
     $("dim-value").textContent = `${Math.round(draft.appearance.dim * 100)}%`;
+  }
+  function updateBurnInControls() {
+    for (const [field, id] of [
+      ["burnInDistance", "burn-in-distance"],
+      ["burnInSpeed", "burn-in-speed"],
+    ]) {
+      $(id).disabled = !draft.appearance.burnInProtection;
+      $(`${id}-value`).textContent = `${draft.appearance[field]} / 5`;
+    }
   }
   function readDraft() {
     for (const input of document.querySelectorAll("[data-path]")) {
@@ -183,6 +197,7 @@
       else delete draft.date.options[field];
     }
     $("dim-value").textContent = `${Math.round(draft.appearance.dim * 100)}%`;
+    updateBurnInControls();
     $("shadow-value").textContent = draft.appearance.shadow;
     validate();
   }
@@ -623,6 +638,10 @@
       ["gradient", "photo"].includes(data.settings.appearance?.backdrop) &&
       ["none", "flip"].includes(data.settings.appearance?.valueAnimation) &&
       typeof data.settings.appearance?.showSource === "boolean" &&
+      typeof data.settings.appearance?.burnInProtection === "boolean" &&
+      typeof data.settings.appearance?.burnInDemo === "boolean" &&
+      Number.isInteger(data.settings.appearance?.burnInDistance) &&
+      Number.isInteger(data.settings.appearance?.burnInSpeed) &&
       Boolean(data.settings.styles?.forecast && data.settings.styles?.metrics);
     $("runtime-notice").hidden = settingsSupported;
     $("save").disabled = saving || !ready || !settingsSupported;
@@ -858,6 +877,15 @@
             body.appearance.valueAnimation ||
           data?.settings?.appearance?.showSource !==
             body.appearance.showSource ||
+          [
+            "burnInProtection",
+            "burnInDistance",
+            "burnInSpeed",
+            "burnInDemo",
+          ].some(
+            (field) =>
+              data?.settings?.appearance?.[field] !== body.appearance[field],
+          ) ||
           ["forecast", "metrics"].some((key) =>
             ["font", "size", "color"].some(
               (field) =>
@@ -913,6 +941,22 @@
   document
     .querySelectorAll("[data-path],[data-date-option]")
     .forEach((input) => input.addEventListener("input", preview));
+  $("burn-in-reset").addEventListener("click", () => {
+    for (const field of [
+      "burnInProtection",
+      "burnInDistance",
+      "burnInSpeed",
+      "burnInDemo",
+    ]) {
+      const input = document.querySelector(`[data-path="appearance.${field}"]`);
+      if (input.type === "checkbox") input.checked = defaults.appearance[field];
+      else input.value = defaults.appearance[field];
+    }
+    preview();
+    toast(
+      "Рекомендуемые параметры восстановлены. Нажмите «Применить» для сохранения.",
+    );
+  });
   $("save").addEventListener("click", async () => {
     if (saving || !ready) return;
     saving = true;

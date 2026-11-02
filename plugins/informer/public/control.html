@@ -315,6 +315,54 @@
                 data-path="appearance.sourceSize"
             /></label>
           </div>
+          <h3>Защита от выгорания</h3>
+          <div class="checks">
+            <label
+              ><input type="checkbox" data-path="appearance.burnInProtection" />
+              Защита от выгорания</label
+            >
+          </div>
+          <div class="fields">
+            <label
+              >Дистанция смещения <output id="burn-in-distance-value"></output>
+              <input
+                id="burn-in-distance"
+                type="range"
+                min="1"
+                max="5"
+                step="1"
+                data-path="appearance.burnInDistance"
+            /></label>
+            <label
+              >Скорость смещения <output id="burn-in-speed-value"></output>
+              <input
+                id="burn-in-speed"
+                type="range"
+                min="1"
+                max="5"
+                step="1"
+                data-path="appearance.burnInSpeed"
+            /></label>
+          </div>
+          <p class="hint">
+            Часы и погода плавно смещаются в пределах свободного места; логотип
+            — сильнее по горизонтали. Чем выше уровень, тем больше дистанция или
+            скорость. Рекомендуется: включено, дистанция 2, скорость 2.
+          </p>
+          <div class="checks">
+            <label
+              ><input type="checkbox" data-path="appearance.burnInDemo" />
+              Ускоренная демка (временно)</label
+            >
+          </div>
+          <p class="hint">
+            Демка ускоряет движение в 60 раз для проверки. После проверки
+            выключите её и нажмите «Применить». Обычный уровень скорости
+            сохраняется.
+          </p>
+          <button id="burn-in-reset" type="button">
+            Сбросить к рекомендуемым
+          </button>
           <div id="style-fields" class="style-fields"></div>
         </section>
         <section
