@@ -221,10 +221,10 @@
       const state = !known
         ? "Нет данных"
         : on
-          ? "Включён"
+          ? (devices.length > 1 ? "Все включены" : "Включён")
           : off
-            ? "Выключен"
-            : "Разные";
+            ? (devices.length > 1 ? "Все выключены" : "Выключен")
+            : "Смешанное";
       const row = el("div", undefined, "channel");
       row.append(
         el("span", String(i + 1).padStart(2, "0"), "channel-number"),
