@@ -8,7 +8,7 @@ const {
   validateOutputs,
   due,
   luxMatch,
-} = require("../plugins/keusb-24r/lib/automation.cjs");
+} = require("../plugins/keusb-24r/dist/lib/automation.cjs");
 const input = {
   id: "test",
   name: "Свет",

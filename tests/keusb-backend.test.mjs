@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const protocol = require("../plugins/keusb-24r/lib/protocol.cjs");
+const protocol = require("../plugins/keusb-24r/dist/lib/protocol.cjs");
 const { activate } = require("../plugins/keusb-24r/dist/main.cjs");
 
 test("protocol validates acknowledgements and reads four outputs", async () => {

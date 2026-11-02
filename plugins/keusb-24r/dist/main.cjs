@@ -1,7 +1,7 @@
 'use strict';
 const { randomUUID } = require('node:crypto');
-const protocol = require('../lib/protocol.cjs');
-const { validateOutputs, validateJob, validateRule, due, luxMatch } = require('../lib/automation.cjs');
+const protocol = require('./lib/protocol.cjs');
+const { validateOutputs, validateJob, validateRule, due, luxMatch } = require('./lib/automation.cjs');
 exports.activate = async context => {
   if (!context.serial || !context.environment) throw new Error('Необходим GMIB Plugin API 1.3');
   const saved = await context.storage.get('state', {});
