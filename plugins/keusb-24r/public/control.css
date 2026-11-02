@@ -97,6 +97,7 @@ label {
 }
 select,
 input {
+  height: 42px;
   min-height: 42px;
   width: 100%;
   font-weight: 400;
@@ -484,4 +485,19 @@ legend {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Normalize native macOS controls to the same field box as text/time inputs. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%236c7878' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+header button:hover:not(:disabled) {
+  background: #314044;
+  color: #fff;
+  border-color: #a5b5b3;
 }

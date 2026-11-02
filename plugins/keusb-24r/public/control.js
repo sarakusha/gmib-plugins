@@ -11,10 +11,18 @@
     toastTimer = null;
   const eventNames = {
     time: "Время",
+    dawn: "Рассвет",
     sunrise: "Восход",
-    day: "Начало дня",
-    sunset: "Заход",
-    night: "Начало ночи",
+    sunriseEnd: "Утро",
+    goldenHourEnd: "День",
+    solarNoon: "Зенит",
+    goldenHour: "Вечер",
+    sunsetStart: "Закат",
+    sunset: "Сумерки",
+    dusk: "Ночь",
+    nadir: "Надир",
+    day: "День",
+    night: "Ночь",
   };
   function el(tag, text, className) {
     const node = document.createElement(tag);
@@ -171,9 +179,8 @@
     if ([...$("log-device").options].some((o) => o.value === filter))
       $("log-device").value = filter;
     const environment = snapshot.environment || {};
-    const solar = environment.solar || {};
     $("environment").textContent =
-      `${environment.timeZone || "Часовой пояс GMIB не задан"} · Заход ${dateTime(solar.sunset)}${environment.sensors?.length ? ` · ${environment.sensors.length} датч.` : " · Нет датчиков освещённости"}`;
+      `${environment.timeZone || "Часовой пояс GMIB не задан"}${environment.sensors?.length ? ` · ${environment.sensors.length} датч.` : " · Нет датчиков освещённости"}`;
     renderChannels();
     renderAutomation();
     renderLogs();
@@ -365,7 +372,18 @@
     $("lux-fields").hidden = kind !== "rule";
     $("edit-repeat").value = item.kind || "daily";
     $("edit-date").value = item.date || "";
-    $("edit-event").value = item.event || "time";
+    const solar = snapshot.environment?.solar || {};
+    for (const opt of [...$("edit-event").options]) {
+      if (opt.dataset.legacy) opt.remove();
+      else opt.disabled = opt.value !== "time" && solar[opt.value] === undefined;
+    }
+    const mappedEvent = ({ day: "goldenHourEnd", night: "dusk" })[item.event];
+    if (mappedEvent && solar[mappedEvent] === undefined) {
+      const legacy = option(item.event, eventNames[item.event]);
+      legacy.dataset.legacy = "true";
+      $("edit-event").append(legacy);
+    }
+    $("edit-event").value = mappedEvent && solar[mappedEvent] !== undefined ? mappedEvent : item.event || "time";
     $("edit-time").value = item.time || "20:00";
     $("edit-offset").value = item.offsetMinutes || 0;
     $("edit-sensor").replaceChildren(

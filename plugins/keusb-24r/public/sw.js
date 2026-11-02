@@ -1,4 +1,4 @@
-const CACHE = "keusb-24r-ui-2";
+const CACHE = "keusb-24r-ui-3";
 const base = new URL(self.registration.scope);
 const shell = [
   "control.html",
