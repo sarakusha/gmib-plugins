@@ -621,7 +621,7 @@ test("freeze, source edits and restart preserve pacing and counters", async () =
   assert.equal(restartedClock.requests.length, 1);
 });
 
-test("daily budget resets at Moscow midnight while lifetime count survives", async () => {
+test("daily budget resets at Moscow midnight and API requests resume at 00:05", async () => {
   const c = clock();
   const h = host(undefined, c.runtime);
   await h.activate();
@@ -630,14 +630,76 @@ test("daily budget resets at Moscow midnight while lifetime count survives", asy
   const state = await h.call("GET", "/state");
   assert.equal(state.cache.usedToday, 1);
   assert.equal(state.cache.remaining, 0);
-  assert.equal(state.cache.nextRequestAt, state.cache.resetAt);
+  assert.equal(state.cache.nextRequestAt, state.cache.resetAt + 5 * 60000);
   await c.advance(state.cache.resetAt - 1);
   assert.equal(c.requests.length, 1);
   await c.advance(state.cache.resetAt);
+  assert.equal(c.requests.length, 1);
+  const atReset = await h.call("GET", "/state");
+  assert.equal(atReset.cache.usedToday, 0);
+  assert.equal(atReset.cache.totalRequests, 1);
+  assert.equal(atReset.cache.nextRequestAt, state.cache.nextRequestAt);
+  await c.advance(state.cache.nextRequestAt);
   assert.equal(c.requests.length, 2);
   const next = await h.call("GET", "/state");
   assert.equal(next.cache.usedToday, 1);
   assert.equal(next.cache.totalRequests, 2);
+});
+
+test("an early 403 retries after five minutes even after restart", async () => {
+  const midnight = Date.parse("2026-10-30T21:00:00Z");
+  const interval = 5 * 60000;
+  const c = clock(midnight + 1, async () => jsonResponse({}, 403));
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await source(h);
+  await c.advance(midnight + interval);
+  const failed = await h.call("GET", "/state");
+  assert.equal(c.requests.length, 1);
+  assert.equal(failed.cache.usedToday, 0);
+  assert.equal(failed.cache.requestsToday, 1);
+  assert.equal(failed.cache.nextRequestAt, midnight + 2 * interval);
+  assert.equal(failed.source.keys[0].blockedUntil, 0);
+  assert.match(failed.cache.message, /Повтор запроса через 5 минут/);
+
+  h.dispose();
+  const restartedClock = clock(c.now());
+  const restarted = host(h.data.get(KEY), restartedClock.runtime);
+  await restarted.activate();
+  await restartedClock.advance(failed.cache.nextRequestAt - 1);
+  assert.equal(restartedClock.requests.length, 0);
+  await restartedClock.advance(failed.cache.nextRequestAt);
+  assert.equal(restartedClock.requests.length, 1);
+  const recovered = await restarted.call("GET", "/state");
+  assert.equal(recovered.cache.usedToday, 1);
+  assert.equal(recovered.cache.requestsToday, 2);
+  assert.equal(recovered.cache.remaining, 49);
+  assert.equal(recovered.cache.message, "");
+  assert.ok(recovered.cache.nextRequestAt > restartedClock.now());
+});
+
+test("persistent rollover 403 stops after the third retry", async () => {
+  const midnight = Date.parse("2026-10-30T21:00:00Z");
+  const interval = 5 * 60000;
+  const c = clock(midnight, async () => jsonResponse({}, 403));
+  const h = host(undefined, c.runtime);
+  await h.activate();
+  await source(h);
+  await c.advance();
+  assert.equal(c.requests.length, 0);
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await c.advance(midnight + attempt * interval - 1);
+    assert.equal(c.requests.length, attempt - 1);
+    await c.advance(midnight + attempt * interval);
+    assert.equal(c.requests.length, attempt);
+  }
+  const failed = await h.call("GET", "/state");
+  assert.equal(failed.cache.usedToday, 0);
+  assert.equal(failed.cache.requestsToday, 4);
+  assert.equal(failed.source.keys[0].blockedUntil, failed.cache.resetAt);
+  assert.equal(failed.cache.nextRequestAt, failed.cache.resetAt + interval);
+  await c.advance(failed.cache.resetAt - 1);
+  assert.equal(c.requests.length, 4);
 });
 
 for (const status of [403, 404, 429, 500]) {
@@ -658,7 +720,7 @@ for (const status of [403, 404, 429, 500]) {
     assert.equal(state.cache.totalRequests, 1);
     assert.match(state.cache.message, new RegExp(String(status)));
     if (status === 403 || status === 404 || status === 429) {
-      assert.equal(state.cache.nextRequestAt, state.cache.resetAt);
+      assert.equal(state.cache.nextRequestAt, state.cache.resetAt + 5 * 60000);
       const restartedClock = clock(c.now());
       const restarted = host(h.data.get(KEY), restartedClock.runtime);
       await restarted.activate();
@@ -868,7 +930,7 @@ test("raising an exhausted daily limit recomputes pacing without an immediate re
   await source(h, { dailyLimit: 1 });
   await c.advance();
   const exhausted = await h.call("GET", "/state");
-  assert.equal(exhausted.cache.nextRequestAt, exhausted.cache.resetAt);
+  assert.equal(exhausted.cache.nextRequestAt, exhausted.cache.resetAt + 5 * 60000);
   const raised = await source(h, { dailyLimit: 50 });
   assert.equal(raised.cache.usedToday, 1);
   assert.equal(raised.cache.totalRequests, 1);
@@ -1329,7 +1391,7 @@ for (const status of [403, 404]) {
     assert.equal(state.source.keys[0].remaining, 1);
     assert.equal(state.source.keys[0].usedToday, 0);
     assert.equal(state.source.keys[0].requestsToday, 2);
-    assert.equal(state.cache.nextRequestAt, state.cache.resetAt);
+    assert.equal(state.cache.nextRequestAt, state.cache.resetAt + 5 * 60000);
     await c.advance(state.cache.resetAt - 1);
     assert.equal(c.requests.length, 2);
     h.dispose();
@@ -1371,7 +1433,7 @@ test("refund persistence failure prevents the alternate probe and conservatively
   assert.equal(h.data.get(KEY).usage.used, 1);
 });
 
-test("an old-day rejected response cannot decrement new-day counters", async () => {
+test("an old-day rejected response cannot decrement or block the new-day budget", async () => {
   let release;
   const c = clock(
     Date.parse("2026-10-30T20:59:30Z"),
@@ -1392,6 +1454,8 @@ test("an old-day rejected response cannot decrement new-day counters", async () 
   const state = await h.call("GET", "/state");
   assert.equal(state.cache.usedToday, 0);
   assert.equal(state.source.keys[0].usedToday, 0);
+  assert.equal(state.source.keys[0].blockedUntil, 0);
+  assert.equal(state.cache.nextRequestAt, reset + 5 * 60000);
   assert.equal(state.cache.totalRequests, 1);
   assert.equal(h.data.get(KEY).usage.day, "2026-10-31");
 });

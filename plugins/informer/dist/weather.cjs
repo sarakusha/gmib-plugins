@@ -1,6 +1,7 @@
 "use strict";
 const {
   dayAt,
+  dayStartAt,
   resetAt,
   fingerprint,
   validateSource,
@@ -16,6 +17,8 @@ const {
   pageCacheAt,
   createPageService,
 } = require("./weather-page-service.cjs");
+const ROLLOVER_DELAY = 5 * 60000;
+const ROLLOVER_RETRY_WINDOW = 4 * ROLLOVER_DELAY;
 
 // Store a usable test response through an allowlist, never arbitrary provider fields.
 function testResponse(weather) {
@@ -85,7 +88,7 @@ function createWeatherService({
       const hash = key.apiKey ? fingerprint(key.apiKey) : null;
       const counter = counterAt(hash ? usage.keys[hash] : null, at);
       const remaining =
-        key.apiKey && counter.blockedUntil <= at
+        key.apiKey && counter.blockedUntil <= at && counter.retryAt <= at
           ? Math.max(0, key.dailyLimit - counter.used)
           : 0;
       return { key, hash, counter, remaining };
@@ -94,20 +97,31 @@ function createWeatherService({
   const available = (record, usage, at) =>
     entries(record, usage, at).reduce((sum, key) => sum + key.remaining, 0);
   function dueAt(record, usage, at) {
-    const remaining = available(record, usage, at),
-      reset = resetAt(at);
-    if (!remaining) return reset;
-    if (usage.nextRequestAt !== null) return usage.nextRequestAt;
-    if (
+    const candidates = entries(record, usage, at);
+    const remaining = candidates.reduce((sum, entry) => sum + entry.remaining, 0);
+    const reset = resetAt(at);
+    const firstRequest = dayStartAt(at) + ROLLOVER_DELAY;
+    let regularDue = usage.nextRequestAt;
+    if (!remaining) regularDue = reset;
+    else if (
+      regularDue === null &&
       usage.lastAttemptAt !== null &&
       dayAt(usage.lastAttemptAt) === usage.day
     )
-      return Math.min(
-        reset,
+      regularDue =
         usage.lastAttemptAt +
-          Math.max(60000, (reset - usage.lastAttemptAt) / (remaining + 1)),
-      );
-    return at;
+        Math.max(60000, (reset - usage.lastAttemptAt) / (remaining + 1));
+    const nextRegularRequest =
+      regularDue >= reset
+        ? reset + ROLLOVER_DELAY
+        : Math.max(firstRequest, regularDue ?? at);
+    return candidates.reduce(
+      (due, { key, counter }) =>
+        key.apiKey && counter.retryAt && counter.used < key.dailyLimit
+          ? Math.min(due, counter.retryAt)
+          : due,
+      nextRegularRequest,
+    );
   }
   function state() {
     const record = getRecord(),
@@ -218,8 +232,9 @@ function createWeatherService({
   }
   async function saveOutcome(hash, patch, weather, refundDay) {
     const record = getRecord(),
-      usage = usageAt(record.usage, now());
-    const counter = counterAt(usage.keys[hash], now());
+      at = now(),
+      usage = usageAt(record.usage, at);
+    const counter = counterAt(usage.keys[hash], at);
     // A known non-billable response refunds only its own day's reservation.
     if (refundDay === usage.day) {
       usage.used = Math.max(0, usage.used - 1);
@@ -233,17 +248,18 @@ function createWeatherService({
         weather,
         "api",
         false,
-        now(),
+        at,
       ));
-    const remaining = available(record, usage, now());
-    usage.nextRequestAt = Math.min(
-      resetAt(now()),
-      usage.lastAttemptAt +
-        Math.max(
-          60000,
-          (resetAt(now()) - usage.lastAttemptAt) / (remaining + 1),
-        ),
-    );
+    const remaining = available(record, usage, at);
+    const reset = resetAt(at);
+    usage.nextRequestAt =
+      usage.lastAttemptAt !== null && dayAt(usage.lastAttemptAt) === usage.day
+        ? Math.min(
+            reset,
+            usage.lastAttemptAt +
+              Math.max(60000, (reset - usage.lastAttemptAt) / (remaining + 1)),
+          )
+        : null;
     await persist({
       ...record,
       usage,
@@ -265,7 +281,11 @@ function createWeatherService({
       usage = usageAt(record.usage, at),
       hash = fingerprint(key.apiKey);
     const counter = counterAt(usage.keys[hash], at);
-    if (counter.used >= key.dailyLimit || counter.blockedUntil > at)
+    if (
+      counter.used >= key.dailyLimit ||
+      counter.blockedUntil > at ||
+      counter.retryAt > at
+    )
       return { stopped: true };
     usage.keys[hash] = {
       ...counter,
@@ -273,6 +293,7 @@ function createWeatherService({
       attempts: counter.attempts + 1,
       total: counter.total + 1,
       lastAttemptAt: at,
+      retryAt: 0,
     };
     usage.used++;
     usage.attempts++;
@@ -358,6 +379,8 @@ function createWeatherService({
       .filter((item) => item.remaining > 0)
       .sort(
         (a, b) =>
+          Number(Boolean(b.counter.retryAt)) - Number(Boolean(a.counter.retryAt)) ||
+          a.counter.retryAt - b.counter.retryAt ||
           b.remaining / b.key.dailyLimit - a.remaining / a.key.dailyLimit ||
           a.key.id.localeCompare(b.key.id),
       );
@@ -376,7 +399,12 @@ function createWeatherService({
       if (disposed || result.stopped) return;
       // A 403/404 from an unclassified key can mean the other v2 endpoint is required.
       // Bound auto detection to two requests; each attempt is counted and reserves quota before dispatch.
-      if (unknown && [403, 404].includes(result.status) && !result.failed) {
+      if (
+        unknown &&
+        [403, 404].includes(result.status) &&
+        !result.failed &&
+        result.day === dayAt(now())
+      ) {
         await saveOutcome(
           hash,
           { lastStatus: result.status, message: "Проверка другого API…" },
@@ -403,14 +431,22 @@ function createWeatherService({
           result.weather,
         );
       else {
-        const blocked = [401, 403, 404, 429].includes(result.status);
-        const message = `Погода не обновлена.${result.status ? ` HTTP ${result.status}.` : ""} Используется последний ответ.${blocked ? " Этот ключ приостановлен до сброса суток." : ""}`;
+        const outcomeAt = now();
+        const sameDay = result.day === dayAt(outcomeAt);
+        const retry =
+          sameDay &&
+          result.status === 403 &&
+          outcomeAt < dayStartAt(outcomeAt) + ROLLOVER_RETRY_WINDOW;
+        const blocked =
+          sameDay && [401, 403, 404, 429].includes(result.status) && !retry;
+        const message = `Погода не обновлена.${result.status ? ` HTTP ${result.status}.` : ""} Используется последний ответ.${retry ? " Повтор запроса через 5 минут." : blocked ? " Этот ключ приостановлен до сброса суток." : ""}`;
         await saveOutcome(
           hash,
           {
             lastStatus: result.status,
             message,
-            blockedUntil: blocked ? resetAt(now()) : 0,
+            blockedUntil: blocked ? resetAt(outcomeAt) : 0,
+            retryAt: retry ? outcomeAt + ROLLOVER_DELAY : 0,
           },
           null,
           [403, 404].includes(result.status) ? result.day : null,

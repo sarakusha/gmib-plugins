@@ -5,7 +5,8 @@ const { validatePage, pageDefaults } = require("./weather-page-service.cjs");
 const DAY = 86400000,
   MOSCOW = 10800000;
 const dayAt = (now) => new Date(now + MOSCOW).toISOString().slice(0, 10);
-const resetAt = (now) => (Math.floor((now + MOSCOW) / DAY) + 1) * DAY - MOSCOW;
+const dayStartAt = (now) => Math.floor((now + MOSCOW) / DAY) * DAY - MOSCOW;
+const resetAt = (now) => dayStartAt(now) + DAY;
 const fingerprint = (key) => createHash("sha256").update(key).digest("hex");
 const finite = (v, min, max) =>
   typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
@@ -140,6 +141,7 @@ function counterAt(saved, now, legacyAttempt) {
       same && finite(value.nextRequestAt, 0, 1e15) ? value.nextRequestAt : null,
     blockedUntil:
       same && finite(value.blockedUntil, 0, 1e15) ? value.blockedUntil : 0,
+    retryAt: same && finite(value.retryAt, 0, 1e15) ? value.retryAt : 0,
     detectedType: ["home", "site"].includes(value.detectedType)
       ? value.detectedType
       : null,
@@ -186,6 +188,7 @@ const poolSignature = (source) =>
   );
 module.exports = {
   dayAt,
+  dayStartAt,
   resetAt,
   fingerprint,
   validateSource,
