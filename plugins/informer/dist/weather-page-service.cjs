@@ -56,7 +56,6 @@ function pageCacheAt(saved, at) {
       value.parserRevision === PAGE_PARSER_REVISION ? PAGE_PARSER_REVISION : 0,
     day: dayAt(at),
     attempts: value.day === dayAt(at) ? count(value.attempts) : 0,
-    total: count(value.total),
     lastAttemptAt: validTime(value.lastAttemptAt) ? value.lastAttemptAt : null,
     nextRequestAt: validTime(value.nextRequestAt) ? value.nextRequestAt : null,
     fetchedAt: validTime(value.fetchedAt) ? value.fetchedAt : null,
@@ -130,7 +129,6 @@ function createPageService({
       next = dueAt(record, at);
     return {
       requestsToday: cache.attempts,
-      totalRequests: cache.total,
       lastAttemptAt: cache.lastAttemptAt,
       fetchedAt: cache.fetchedAt,
       nextRequestAt: Number.isFinite(next) ? next : null,
@@ -238,7 +236,6 @@ function createPageService({
     const reserved = {
       ...cache,
       attempts: cache.attempts + 1,
-      total: cache.total + 1,
       lastAttemptAt: at,
       nextRequestAt: at + interval,
       message: "Обновление со страницы…",

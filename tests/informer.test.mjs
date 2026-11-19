@@ -571,7 +571,7 @@ test("live scheduling reserves attempts and spaces remaining requests through Mo
   const reset = Date.parse("2026-10-30T21:00:00Z");
   assert.equal(state.cache.usedToday, 1);
   assert.equal(state.cache.remaining, 49);
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 1);
   assert.equal(state.cache.resetAt, reset);
   assert.equal(state.cache.nextRequestAt, c.now() + (reset - c.now()) / 50);
   await c.advance(state.cache.nextRequestAt - 1);
@@ -580,7 +580,7 @@ test("live scheduling reserves attempts and spaces remaining requests through Mo
   assert.equal(c.requests.length, 2);
   const persisted = h.data.get(KEY);
   assert.equal(persisted.usage.used, 2);
-  assert.equal(persisted.usage.total, 2);
+  assert.equal(persisted.usage.attempts, 2);
   assert.equal(persisted.testResponse.fact.temp, 0);
   assert.equal(
     JSON.stringify(persisted.testResponse).includes("ignored"),
@@ -615,7 +615,7 @@ test("freeze, source edits and restart preserve pacing and counters", async () =
   assert.equal(restartedClock.requests.length, 0);
   const state = await restarted.call("GET", "/state");
   assert.equal(state.cache.usedToday, 1);
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 1);
   assert.ok(state.cache.nextRequestAt >= first.cache.nextRequestAt);
   await restartedClock.advance(state.cache.nextRequestAt);
   assert.equal(restartedClock.requests.length, 1);
@@ -637,13 +637,13 @@ test("daily budget resets at Moscow midnight and API requests resume at 00:05", 
   assert.equal(c.requests.length, 1);
   const atReset = await h.call("GET", "/state");
   assert.equal(atReset.cache.usedToday, 0);
-  assert.equal(atReset.cache.totalRequests, 1);
+  assert.equal(atReset.cache.requestsToday, 0);
   assert.equal(atReset.cache.nextRequestAt, state.cache.nextRequestAt);
   await c.advance(state.cache.nextRequestAt);
   assert.equal(c.requests.length, 2);
   const next = await h.call("GET", "/state");
   assert.equal(next.cache.usedToday, 1);
-  assert.equal(next.cache.totalRequests, 2);
+  assert.equal(next.cache.requestsToday, 1);
 });
 
 test("an early 403 retries after five minutes even after restart", async () => {
@@ -717,7 +717,6 @@ for (const status of [403, 404, 429, 500]) {
       status === 403 || status === 404 ? 0 : 1,
     );
     assert.equal(state.cache.requestsToday, 1);
-    assert.equal(state.cache.totalRequests, 1);
     assert.match(state.cache.message, new RegExp(String(status)));
     if (status === 403 || status === 404 || status === 429) {
       assert.equal(state.cache.nextRequestAt, state.cache.resetAt + 5 * 60000);
@@ -777,7 +776,7 @@ test("concurrent settings updates and pending network dispatch share one reserve
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(c.requests.length, 1);
   assert.equal(h.data.get(KEY).usage.used, 1);
-  assert.equal(h.data.get(KEY).usage.total, 1);
+  assert.equal(h.data.get(KEY).usage.attempts, 1);
   release(jsonResponse(fakeWeather()));
   await dispatched;
   await c.advance();
@@ -800,7 +799,7 @@ test("network errors and oversized provider responses retain weather and durable
     const state = await h.call("GET", "/state");
     assert.deepEqual(state.weather, before);
     assert.equal(state.cache.usedToday, 1);
-    assert.equal(state.cache.totalRequests, 1);
+    assert.equal(state.cache.requestsToday, 1);
     assert.equal(
       JSON.stringify(state).includes("secret transport detail"),
       false,
@@ -832,7 +831,7 @@ test("frozen weather resets daily counters and publishes state at Moscow midnigh
   await c.advance(before.cache.resetAt);
   assert.equal(c.requests.length, 1);
   assert.equal(h.data.get(KEY).usage.used, 0);
-  assert.equal(h.data.get(KEY).usage.total, 1);
+  assert.equal(h.data.get(KEY).usage.attempts, 0);
   assert.equal(h.data.get(KEY).usage.day, "2026-10-31");
   assert.equal(h.events.length, eventCount + 1);
   assert.equal(h.events.at(-1).value.cache.usedToday, 0);
@@ -851,13 +850,13 @@ test("startup at 09:00 Moscow after an offline night resets quota and resumes im
   await restarted.activate();
   const before = await restarted.call("GET", "/state");
   assert.equal(before.cache.usedToday, 0);
-  assert.equal(before.cache.totalRequests, 1);
+  assert.equal(before.cache.requestsToday, 0);
   assert.equal(before.cache.nextRequestAt, nextClock.now());
   await nextClock.advance();
   const after = await restarted.call("GET", "/state");
   assert.equal(nextClock.requests.length, 1);
   assert.equal(after.cache.usedToday, 1);
-  assert.equal(after.cache.totalRequests, 2);
+  assert.equal(after.cache.requestsToday, 1);
 });
 
 test("disposal cancels live and frozen timers and prevents future requests and events", async () => {
@@ -933,7 +932,7 @@ test("raising an exhausted daily limit recomputes pacing without an immediate re
   assert.equal(exhausted.cache.nextRequestAt, exhausted.cache.resetAt + 5 * 60000);
   const raised = await source(h, { dailyLimit: 50 });
   assert.equal(raised.cache.usedToday, 1);
-  assert.equal(raised.cache.totalRequests, 1);
+  assert.equal(raised.cache.requestsToday, 1);
   assert.ok(raised.cache.nextRequestAt >= c.now() + 60000);
   assert.ok(raised.cache.nextRequestAt < raised.cache.resetAt);
   await c.advance(raised.cache.nextRequestAt - 1);
@@ -1039,7 +1038,7 @@ test("manual pool key types use their own endpoint and exhausted keys leave othe
   assert.equal(c.requests[1][1].headers["X-Yandex-Weather-Key"], secondKey);
   state = await h.call("GET", "/state");
   assert.equal(state.cache.usedToday, 2);
-  assert.equal(state.cache.totalRequests, 2);
+  assert.equal(state.cache.requestsToday, 2);
   assert.equal(state.cache.remaining, 0);
 });
 
@@ -1075,7 +1074,7 @@ for (const status of [401, 403, 404, 429]) {
     assert.equal(c.requests.length, 2);
     assert.equal(c.requests[1][1].headers["X-Yandex-Weather-Key"], secondKey);
     state = await h.call("GET", "/state");
-    assert.equal(state.cache.totalRequests, 2);
+    assert.equal(state.cache.requestsToday, 2);
     assert.equal(state.cache.remaining, 4);
   });
 }
@@ -1099,7 +1098,7 @@ test("auto detection reserves both probes, caches the working type, and survives
   assert.equal(state.cache.requestsToday, 2);
   assert.equal(state.cache.remaining, 4);
   assert.equal(state.source.keys[0].detectedType, "site");
-  assert.equal(state.source.keys[0].totalRequests, 2);
+  assert.equal(state.source.keys[0].requestsToday, 2);
   const publicData = JSON.stringify([
     state,
     h.events,
@@ -1119,7 +1118,7 @@ test("auto detection reserves both probes, caches the working type, and survives
   );
   assert.equal(next.requests.length, 1);
   assert.equal(new URL(next.requests[0][0]).pathname, "/v2/informers");
-  assert.equal((await restarted.call("GET", "/state")).cache.totalRequests, 3);
+  assert.equal((await restarted.call("GET", "/state")).cache.requestsToday, 3);
 });
 
 test("an auto probe cannot exceed its own budget or fall back for unrelated HTTP failures", async () => {
@@ -1153,7 +1152,7 @@ test("removing, readding, renaming and reordering keys cannot reset durable quot
   });
   let state = await h.call("GET", "/state");
   assert.equal(state.cache.usedToday, 1);
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 1);
   await pool(
     h,
     [
@@ -1169,10 +1168,10 @@ test("removing, readding, renaming and reordering keys cannot reset durable quot
   const restarted = host(h.data.get(KEY), clock(c.now()).runtime);
   await restarted.activate();
   state = await restarted.call("GET", "/state");
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 1);
   assert.equal(state.source.keys.find((k) => k.id === "renamed").usedToday, 1);
   assert.equal(
-    state.source.keys.find((k) => k.id === "renamed").totalRequests,
+    state.source.keys.find((k) => k.id === "renamed").requestsToday,
     1,
   );
 });
@@ -1207,12 +1206,18 @@ test("auto HTTP 404 detects site while successful forecast detection is not repe
   }
 });
 
-test("legacy single-key configuration migrates without losing previously used quota", async () => {
+test("legacy single-key usage drops lifetime totals while keeping today's API and page counts", async () => {
   const c = clock();
+  const pageFetchedAt = c.now() - 60000;
   const h = host(
     {
       version: 1,
       settings: structuredClone(model.defaults),
+      weather: {
+        ...model.normalizeWeather(fakeWeather(), pageFetchedAt),
+        provider: "yandex-page",
+        forecastSource: "api",
+      },
       source: {
         lat: 55.75,
         lon: 37.62,
@@ -1227,6 +1232,12 @@ test("legacy single-key configuration migrates without losing previously used qu
         nextRequestAt: c.now() + 60000,
         blockedUntil: 0,
       },
+      pageCache: {
+        day: "2026-10-30",
+        attempts: 3,
+        total: 11,
+        fetchedAt: pageFetchedAt,
+      },
     },
     c.runtime,
   );
@@ -1235,10 +1246,18 @@ test("legacy single-key configuration migrates without losing previously used qu
   assert.equal(state.source.keys.length, 1);
   assert.equal(state.source.keys[0].type, "site");
   assert.equal(state.source.keys[0].usedToday, 7);
-  assert.equal(state.source.keys[0].totalRequests, 19);
+  assert.equal(state.source.keys[0].requestsToday, 7);
   assert.equal(state.cache.usedToday, 7);
-  assert.equal(state.cache.totalRequests, 19);
+  assert.equal(state.cache.requestsToday, 7);
   assert.equal(state.cache.remaining, 43);
+  assert.equal(state.cache.fetchedAt, null);
+  assert.equal(state.cache.page.requestsToday, 3);
+  assert.equal(state.cache.page.fetchedAt, pageFetchedAt);
+  for (const stats of [state.cache, state.cache.page, state.source.keys[0]])
+    assert.equal(Object.hasOwn(stats, "totalRequests"), false);
+  const { usage, pageCache } = h.data.get(KEY);
+  for (const counter of [usage, pageCache, ...Object.values(usage.keys)])
+    assert.equal(Object.hasOwn(counter, "total"), false);
   await c.advance();
   assert.equal(c.requests.length, 0);
 });
@@ -1330,7 +1349,7 @@ test("an incorrect site limit hint probes home and caches the confirmed home end
   assert.equal(new URL(c.requests.at(-1)[0]).pathname, "/v2/forecast");
 });
 
-test("new Moscow day resets all key quotas including removed keys while lifetime counters survive restart", async () => {
+test("new Moscow day resets quotas and attempts for all keys including removed keys", async () => {
   const c = clock();
   const h = host(undefined, c.runtime);
   await h.activate();
@@ -1348,11 +1367,11 @@ test("new Moscow day resets all key quotas including removed keys while lifetime
   await restarted.activate();
   const state = await pool(restarted, keys, { useLastResponse: true });
   assert.equal(state.cache.usedToday, 0);
-  assert.equal(state.cache.totalRequests, 2);
+  assert.equal(state.cache.requestsToday, 0);
   assert.equal(state.cache.remaining, 2);
   for (const key of state.source.keys) {
     assert.equal(key.usedToday, 0);
-    assert.equal(key.totalRequests, 1);
+    assert.equal(key.requestsToday, 0);
     assert.equal(key.blockedUntil, 0);
   }
   await next.advance();
@@ -1376,7 +1395,7 @@ test("ten keys are accepted and eleven are rejected", async () => {
 });
 
 for (const status of [403, 404]) {
-  test(`auto HTTP ${status} refunds each probe without spinning or losing lifetime attempts`, async () => {
+  test(`auto HTTP ${status} refunds each probe without spinning or losing today's attempts`, async () => {
     const c = clock(undefined, async () => jsonResponse({}, status));
     const h = host(undefined, c.runtime);
     await h.activate();
@@ -1386,7 +1405,6 @@ for (const status of [403, 404]) {
     assert.equal(c.requests.length, 2);
     assert.equal(state.cache.usedToday, 0);
     assert.equal(state.cache.requestsToday, 2);
-    assert.equal(state.cache.totalRequests, 2);
     assert.equal(state.cache.remaining, 0);
     assert.equal(state.source.keys[0].remaining, 1);
     assert.equal(state.source.keys[0].usedToday, 0);
@@ -1399,7 +1417,7 @@ for (const status of [403, 404]) {
     await restarted.activate();
     const saved = await restarted.call("GET", "/state");
     assert.equal(saved.cache.usedToday, 0);
-    assert.equal(saved.cache.totalRequests, 2);
+    assert.equal(saved.cache.requestsToday, 2);
     assert.equal(saved.source.keys[0].remaining, 1);
   });
 }
@@ -1429,7 +1447,7 @@ test("refund persistence failure prevents the alternate probe and conservatively
   assert.equal(c.requests.length, 1);
   const state = await h.call("GET", "/state");
   assert.equal(state.cache.usedToday, 1);
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 1);
   assert.equal(h.data.get(KEY).usage.used, 1);
 });
 
@@ -1456,7 +1474,7 @@ test("an old-day rejected response cannot decrement or block the new-day budget"
   assert.equal(state.source.keys[0].usedToday, 0);
   assert.equal(state.source.keys[0].blockedUntil, 0);
   assert.equal(state.cache.nextRequestAt, reset + 5 * 60000);
-  assert.equal(state.cache.totalRequests, 1);
+  assert.equal(state.cache.requestsToday, 0);
   assert.equal(h.data.get(KEY).usage.day, "2026-10-31");
 });
 
@@ -1573,7 +1591,6 @@ test("page-only live source uses configured coordinates without spending API quo
   assert.equal(c.requests[0][1].redirect, "error");
   const state = await h.call("GET", "/state");
   assert.equal(state.cache.page.requestsToday, 1);
-  assert.equal(state.cache.page.totalRequests, 1);
   assert.equal(state.cache.page.nextRequestAt, c.now() + 15 * 60000);
   assert.equal(state.cache.nextUpdateAt, state.cache.page.nextRequestAt);
   assert.deepEqual(h.data.get(KEY).usage, apiUsage);
@@ -1593,10 +1610,10 @@ test("failed page attempts retain weather, pace retries, and persist across rest
   await c.advance();
   const state = await h.call("GET", "/state");
   assert.deepEqual(state.weather, before);
-  assert.equal(state.cache.page.totalRequests, 1);
+  assert.equal(state.cache.page.requestsToday, 1);
   assert.ok(state.cache.page.nextRequestAt >= c.now() + 30 * 60000);
   const saved = structuredClone(h.data.get(KEY));
-  assert.equal(saved.pageCache.total, 1);
+  assert.equal(saved.pageCache.attempts, 1);
   await h.dispose();
   const nextClock = clock(c.now(), async () => pageResponse());
   const restarted = host(saved, nextClock.runtime);
@@ -1646,14 +1663,18 @@ for (const apiFails of [false, true]) {
     assert.equal(new URL(c.requests[0][0]).hostname, "api.weather.yandex.ru");
     const state = await h.call("GET", "/state");
     assert.equal(state.source.keys[0].requestsToday, 1);
-    assert.equal(state.source.keys[0].totalRequests, 1);
     if (apiFails) {
       assert.equal(c.requests.length, 2);
-      assert.equal(state.cache.page.totalRequests, 1);
+      assert.equal(state.cache.page.requestsToday, 1);
+      assert.equal(state.cache.page.fetchedAt, c.now());
+      assert.equal(state.cache.fetchedAt, null);
+      assert.equal(state.cache.lastStatus, 500);
       assert.equal(state.weather.provider, "yandex-page");
     } else {
       assert.equal(c.requests.length, 1);
-      assert.equal(state.cache.page.totalRequests, 0);
+      assert.equal(state.cache.page.requestsToday, 0);
+      assert.equal(state.cache.page.fetchedAt, null);
+      assert.equal(state.cache.fetchedAt, c.now());
       assert.ok(state.cache.page.nextRequestAt >= c.now() + 15 * 60000);
     }
     await h.dispose();
@@ -1675,6 +1696,8 @@ test("website refresh keeps API forecast ranges across restart while updating cu
   await pool(h, [poolKey("mixed", validKey)], { page: pageSource() });
   await c.advance();
   const api = await h.call("GET", "/state");
+  assert.equal(api.cache.fetchedAt, c.now());
+  assert.equal(api.cache.page.fetchedAt, null);
   assert.equal(api.weather.forecastSource, "api");
   assert.equal(api.weather.forecast[0].tempMin, 4);
   assert.equal(api.weather.forecast[0].tempMax, 12);
@@ -1683,10 +1706,16 @@ test("website refresh keeps API forecast ranges across restart while updating cu
   await restarted.activate();
   await c.advance(api.cache.page.nextRequestAt);
   const page = await restarted.call("GET", "/state");
+  assert.equal(page.cache.fetchedAt, api.cache.fetchedAt);
+  assert.equal(page.cache.page.fetchedAt, c.now());
   assert.equal(page.weather.provider, "yandex-page");
   assert.equal(page.weather.temp, 8);
   assert.equal(page.weather.forecastSource, "api");
   assert.deepEqual(page.weather.forecast, api.weather.forecast);
+  await c.advance(page.cache.nextRequestAt);
+  const nextApi = await restarted.call("GET", "/state");
+  assert.equal(nextApi.cache.fetchedAt, c.now());
+  assert.equal(nextApi.cache.page.fetchedAt, page.cache.page.fetchedAt);
   await restarted.dispose();
 });
 
@@ -1761,7 +1790,7 @@ test("removing API keys in frozen mode immediately reveals the cached page forec
   await h.dispose();
 });
 
-test("page attempt counters reset on Moscow midnight while lifetime totals survive", async () => {
+test("page attempt counters reset at Moscow midnight", async () => {
   const c = clock(Date.parse("2026-10-30T20:55:00Z"), async () =>
     pageResponse(),
   );
@@ -1773,7 +1802,6 @@ test("page attempt counters reset on Moscow midnight while lifetime totals survi
   await c.advance(Date.parse("2026-10-30T21:00:00Z"));
   const state = await h.call("GET", "/state");
   assert.equal(state.cache.page.requestsToday, 1);
-  assert.equal(state.cache.page.totalRequests, 2);
   await h.dispose();
 });
 
@@ -1831,7 +1859,7 @@ test("page 429 honors Retry-After and retains weather without spending API quota
   assert.equal(state.cache.page.suspended, false);
   assert.ok(state.cache.page.nextRequestAt >= c.now() + 7200 * 1000);
   assert.deepEqual(state.weather, before);
-  assert.equal(state.cache.totalRequests, 0);
+  assert.equal(state.cache.requestsToday, 0);
   await c.advance(state.cache.page.nextRequestAt - 1);
   assert.equal(c.requests.length, 1);
   await h.dispose();
@@ -1865,7 +1893,9 @@ test("page validators support 304 and are dropped after coordinates change", asy
   );
   const second = await h.call("GET", "/state");
   assert.equal(second.weather.temp, first.weather.temp);
-  assert.equal(second.cache.page.totalRequests, 2);
+  assert.equal(second.cache.page.requestsToday, 2);
+  assert.equal(second.cache.page.fetchedAt, c.now());
+  assert.equal(second.cache.fetchedAt, null);
   await configurePage(h, { lat: 56 });
   const changed = await h.call("GET", "/state");
   await c.advance(changed.cache.page.nextRequestAt);
@@ -1953,7 +1983,7 @@ test("light page updates discover action once, retain optional weather and refre
   assert.equal(c.requests.length, 2);
   assert.equal(String(c.requests[1][0]), actionAsset);
   const first = await h.call("GET", "/state");
-  assert.equal(first.cache.page.totalRequests, 1);
+  assert.equal(first.cache.page.requestsToday, 1);
   await c.advance(first.cache.page.nextRequestAt);
   assert.equal(c.requests.length, 3);
   const [url, options] = c.requests[2];
@@ -1968,7 +1998,7 @@ test("light page updates discover action once, retain optional weather and refre
   assert.equal(light.weather.temp, 12);
   assert.equal(light.weather.humidity, first.weather.humidity);
   assert.deepEqual(light.weather.forecast, first.weather.forecast);
-  assert.equal(light.cache.page.totalRequests, 2);
+  assert.equal(light.cache.page.requestsToday, 2);
   assert.deepEqual(h.data.get(KEY).usage, usage);
   await c.advance(first.cache.page.lastAttemptAt + 86400000);
   assert.notEqual(c.requests.at(-1)[1].method, "POST");
@@ -2117,14 +2147,14 @@ test("missing action discovery is cached for a day while valid HTML weather cont
   const first = await h.call("GET", "/state");
   assert.equal(first.weather.temp, 8);
   assert.equal(h.data.get(KEY).pageCache.formatChanged, false);
-  assert.equal(first.cache.page.totalRequests, 1);
+  assert.equal(first.cache.page.requestsToday, 1);
   await c.advance(first.cache.page.nextRequestAt);
   assert.equal(c.requests.length, 3);
   assert.notEqual(c.requests[2][1].method, "POST");
   assert.notEqual(String(c.requests[2][0]), actionAsset);
   const next = await h.call("GET", "/state");
   assert.equal(next.weather.temp, 8);
-  assert.equal(next.cache.page.totalRequests, 2);
+  assert.equal(next.cache.page.requestsToday, 2);
   assert.equal(h.data.get(KEY).pageCache.formatChanged, false);
   assert.deepEqual(h.data.get(KEY).usage, usage);
   await h.dispose();

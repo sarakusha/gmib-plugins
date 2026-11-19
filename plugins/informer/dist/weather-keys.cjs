@@ -125,7 +125,6 @@ function counterAt(saved, now, legacyAttempt) {
       : {
           day: legacy ? dayAt(legacy) : dayAt(now),
           used: legacy ? 1 : 0,
-          total: legacy ? 1 : 0,
           lastAttemptAt: legacy,
         };
   const same = value.day === dayAt(now);
@@ -133,7 +132,6 @@ function counterAt(saved, now, legacyAttempt) {
     day: dayAt(now),
     used: same ? count(value.used) : 0,
     attempts: same ? count(value.attempts ?? value.used) : 0,
-    total: Math.max(count(value.total), count(value.used)),
     lastAttemptAt: finite(value.lastAttemptAt, 0, 1e15)
       ? value.lastAttemptAt
       : null,

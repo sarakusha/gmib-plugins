@@ -515,7 +515,7 @@
       entry.status.textContent = `${invalidHint}${apiStatus}\nНовый ключ: статистика появится после применения.`;
       return;
     }
-    entry.status.textContent = `${invalidHint}Сегодня (квота): ${key.usedToday ?? 0} / ${key.dailyLimit}; остаток квоты: ${key.remaining ?? 0}\nВсего попыток запроса: ${key.totalRequests ?? 0}\n${apiStatus}${key.lastStatus ? `\nСтатус: ${key.lastStatus}` : ""}${key.blockedUntil ? `\nЗаблокирован до: ${sourceDate(key.blockedUntil)}` : ""}${key.message ? `\n${key.message}` : ""}`;
+    entry.status.textContent = `${invalidHint}Сегодня (квота): ${key.usedToday ?? 0} / ${key.dailyLimit}; остаток квоты: ${key.remaining ?? 0}\n${requestsToday(key)}\n${apiStatus}${key.lastStatus ? `\nСтатус: HTTP ${key.lastStatus}` : ""}${key.blockedUntil ? `\nЗаблокирован до: ${sourceDate(key.blockedUntil)}` : ""}${key.message ? `\n${key.message}` : ""}`;
   }
   function bindSource() {
     const source = snapshot?.source;
@@ -595,6 +595,21 @@
       timeZone: "Europe/Moscow",
     }).format(new Date(value));
   }
+  function requestsToday(stats) {
+    return `Обновлений сегодня: ${stats?.requestsToday ?? 0}`;
+  }
+  function sourceStatistics(stats) {
+    return [
+      requestsToday(stats),
+      `Следующее обновление: ${sourceDate(stats?.nextRequestAt)}`,
+      `Последняя попытка: ${sourceDate(stats?.lastAttemptAt)}`,
+      `Последний успешный ответ: ${sourceDate(stats?.fetchedAt)}`,
+      stats?.lastStatus && `Статус: HTTP ${stats.lastStatus}`,
+      stats?.message,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
   function updateCache() {
     const c = snapshot?.cache;
     for (const entry of keyRows) {
@@ -609,10 +624,24 @@
       !sourceSupported || !(page?.suspended || page?.formatChanged);
     $("page-status").textContent = !sourceSupported
       ? "Обновите backend для настройки страницы Яндекса."
-      : `Страница Яндекса: ${page?.suspended ? "приостановлена" : snapshot.source.page.enabled ? "включена" : "выключена"}\nОбновлений сегодня: ${page?.requestsToday ?? 0}; всего: ${page?.totalRequests ?? 0}${page?.mode === "background" ? "\nЛёгкое обновление" : ""}${page?.formatChanged ? "\nФормат страницы изменился — проверка раз в сутки" : ""}\nСледующее обновление страницы: ${sourceDate(page?.nextRequestAt)}\n${page?.retryAt ? `Повтор после: ${sourceDate(page.retryAt)}\n` : ""}Последняя попытка: ${sourceDate(page?.lastAttemptAt)}\nПоследний успешный ответ: ${sourceDate(page?.fetchedAt)}${page?.lastStatus ? `\nСтатус: ${page.lastStatus}` : ""}${page?.message ? `\n${page.message}` : ""}`;
+      : [
+          `Страница Яндекса: ${page?.suspended ? "приостановлена" : snapshot.source.page.enabled ? "включена" : "выключена"}`,
+          page?.mode === "background" && "Лёгкое обновление",
+          page?.formatChanged && "Формат страницы изменился — проверка раз в сутки",
+          sourceStatistics(page),
+        ]
+          .filter(Boolean)
+          .join("\n");
     $("cache-status").textContent = !sourceSupported
       ? "Настройки источника недоступны. Перезапустите GMIB после обновления backend Informer."
-      : `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}\nСегодня (квота): ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}\nДоступный пул: ${c?.remaining ?? 0}\nВсего попыток запроса: ${c?.totalRequests ?? 0}\nСледующее обновление: ${sourceDate(c?.nextRequestAt)}\nСброс лимита (МСК): ${sourceDate(c?.resetAt)}\nПолучен ответ: ${sourceDate(c?.fetchedAt)}${c?.message ? `\n${c.message}` : ""}`;
+      : [
+          "API Яндекс Погоды",
+          `Режим: ${c?.mode === "frozen" ? "последний ответ" : "автоматическое обновление"}`,
+          `Сегодня (квота): ${c?.usedToday ?? 0} / ${snapshot.source.dailyLimit}`,
+          `Доступный пул: ${c?.remaining ?? 0}`,
+          `Сброс лимита (МСК): ${sourceDate(c?.resetAt)}`,
+          sourceStatistics(c),
+        ].join("\n");
   }
   function updateSnapshot(data, keepDraft = false) {
     if (!data || typeof data !== "object" || !data.settings) return;

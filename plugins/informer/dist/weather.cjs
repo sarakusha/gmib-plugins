@@ -137,7 +137,6 @@ function createWeatherService({
         detectedType: counter.detectedType,
         usedToday: counter.used,
         requestsToday: counter.attempts,
-        totalRequests: counter.total,
         remaining: key.apiKey ? Math.max(0, key.dailyLimit - counter.used) : 0,
         invalid:
           counter.blockedUntil > at &&
@@ -148,6 +147,11 @@ function createWeatherService({
       }),
     );
     const hasApiKey = keys.some((key) => key.hasApiKey);
+    const apiWeather = [record.forecastCache.api, record.weather].find(
+      (weather) =>
+        weather?.fetchedAt > 0 &&
+        ["yandex-informers", "yandex-forecast"].includes(weather.provider),
+    );
     return {
       source: {
         lat: record.source.lat,
@@ -161,7 +165,6 @@ function createWeatherService({
       cache: {
         mode: record.source.useLastResponse ? "frozen" : "live",
         usedToday: usage.used,
-        totalRequests: usage.total,
         requestsToday: usage.attempts,
         remaining: available(record, usage, at),
         resetAt: resetAt(at),
@@ -182,7 +185,8 @@ function createWeatherService({
               ),
         page: pageService.state(record, at),
         lastAttemptAt: usage.lastAttemptAt,
-        fetchedAt: record.weather.fetchedAt,
+        fetchedAt: apiWeather?.fetchedAt ?? null,
+        lastStatus: usage.lastStatus,
         message: record.cache?.message || "",
       },
     };
@@ -241,6 +245,7 @@ function createWeatherService({
       counter.used = Math.max(0, counter.used - 1);
     }
     usage.keys[hash] = { ...counter, ...patch };
+    usage.lastStatus = patch.lastStatus;
     let forecastCache = record.forecastCache;
     if (weather)
       ({ weather, forecastCache } = mergeForecast(
@@ -291,13 +296,11 @@ function createWeatherService({
       ...counter,
       used: counter.used + 1,
       attempts: counter.attempts + 1,
-      total: counter.total + 1,
       lastAttemptAt: at,
       retryAt: 0,
     };
     usage.used++;
     usage.attempts++;
-    usage.total++;
     usage.lastAttemptAt = at;
     const remaining = available(record, usage, at);
     usage.nextRequestAt = Math.min(

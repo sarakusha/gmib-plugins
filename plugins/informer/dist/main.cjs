@@ -67,6 +67,15 @@ exports.activate = async (
           : "",
     },
   };
+  if (
+    [saved.usage, saved.pageCache, ...Object.values(saved.usage?.keys ?? {})].some(
+      (counter) => Object.hasOwn(counter ?? {}, "total"),
+    )
+  ) {
+    await storage.set(STORAGE_KEY, record).catch(() => {
+      logger.warn("Informer: не удалось очистить прежние счётчики запросов");
+    });
+  }
   let weatherService;
   const snapshot = () =>
     structuredClone({
