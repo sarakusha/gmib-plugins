@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-02T12:10:11.739Z",
+  "generatedAt": "2026-11-19T05:47:20.394Z",
   "source": "https://github.com/sarakusha/gmib-plugins",
   "plugins": [
     {
@@ -79,7 +79,7 @@
       "manifest": {
         "id": "informer",
         "name": "Informer — часы и погода",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "description": "Адаптивные часы, дата и погода с кешем и суточным бюджетом запросов.",
         "gmibApi": "^1.2.0",
         "main": "dist/main.cjs",
@@ -111,9 +111,9 @@
       },
       "repository": "https://github.com/sarakusha/gmib-plugins",
       "release": {
-        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/informer-v1.0.3/informer.gmib-plugin",
-        "sha256": "984f094d6f1f64e251137bae557cbd712c5602fc4c212ce7a28e65452ed1afe1",
-        "size": 499494
+        "url": "https://github.com/sarakusha/gmib-plugins/releases/download/informer-v1.0.4/informer.gmib-plugin",
+        "sha256": "cd680f77407118ddf5d9537783fcf81db70be2f52c8fcd4d4d9a58fcb481a9b5",
+        "size": 500115
       }
     },
     {
